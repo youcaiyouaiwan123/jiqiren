@@ -49,6 +49,68 @@ export interface Conversation {
   updated_at: string | null
 }
 
+export interface PlanDisplayConfig {
+  badge_text?: string
+  summary?: string
+  original_price?: number | string
+  button_text?: string
+  feature_points?: string[]
+  is_recommended?: boolean
+  cta_url?: string
+}
+
+export interface SubscribePlan {
+  id: number
+  name: string
+  type: 'monthly' | 'yearly' | 'custom'
+  price: number | string
+  duration_days: number
+  chat_limit: number
+  description: string | null
+  display_config?: PlanDisplayConfig | null
+  is_active: number
+  sort_order: number
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface PaymentChannelOption {
+  id: number
+  channel: 'wechat' | 'alipay' | string
+  display_name: string
+  description: string
+  button_label: string
+  qrcode_url: string
+  pay_tips: string
+  checkout_url: string
+}
+
+export interface SubscribeCatalogData {
+  current: Pick<UserInfo, 'subscribe_plan' | 'subscribe_expire' | 'free_chats_left'>
+  plans: SubscribePlan[]
+  channels: PaymentChannelOption[]
+}
+
+export interface SubscribeOrder {
+  id: number
+  order_no: string | null
+  user_id?: number
+  nickname?: string | null
+  phone?: string | null
+  email?: string | null
+  type: 'subscribe' | 'redeem'
+  plan: 'monthly' | 'yearly' | null
+  plan_id: number | null
+  plan_name?: string | null
+  channel: string | null
+  amount: number | string | null
+  status: 'pending' | 'success' | 'failed'
+  remark: string | null
+  paid_at: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
 export interface KnowledgeDoc {
   title: string
   source: string

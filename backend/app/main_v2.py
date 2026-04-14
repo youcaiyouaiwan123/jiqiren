@@ -199,6 +199,7 @@ from app.routers import (
     admin_knowledge,
     admin_knowledge_files,
     admin_llm,
+    admin_payments,
     admin_payment_config,
     admin_plans,
     admin_redeem,
@@ -211,7 +212,7 @@ from app.routers import (
     chat_v2 as chat,
     image_proxy,
     public,
-    subscribe,
+    subscribe_v2 as subscribe,
 )
 
 for router in [
@@ -234,6 +235,7 @@ for router in [
     admin_invite_codes.router,
     admin_feishu.router,
     admin_register.router,
+    admin_payments.router,
     admin_payment_config.router,
     admin_plans.router,
     admin_wecom.router,

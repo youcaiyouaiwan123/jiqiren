@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ChatDotRound, Plus, Fold, Expand, Promotion, User as UserIcon, SwitchButton, Search, Edit, Delete, Close, Check, Microphone, Picture } from '@element-plus/icons-vue'
 import api from '@/utils/api'
+import SubscriptionCheckoutDialog from '@/components/SubscriptionCheckoutDialog.vue'
 import type { ChatDoneData, ChatImage, ChatMessage, Conversation, RetrievalInfo } from '@/types'
 
 const router = useRouter()
@@ -19,6 +20,7 @@ const thinking = ref(false)
 const errorText = ref('')
 const msgArea = ref<HTMLElement | null>(null)
 const sideCollapsed = ref(false)
+const subscribeDialogVisible = ref(false)
 
 const searchQuery = ref('')
 const contextMenuConvId = ref<number | null>(null)
@@ -237,10 +239,30 @@ async function onPasteImage(e: ClipboardEvent) {
   }
 }
 
+function hasActiveSubscription() {
+  if (!auth.user || auth.user.subscribe_plan === 'free' || !auth.user.subscribe_expire) return false
+  return new Date(auth.user.subscribe_expire).getTime() > Date.now()
+}
+
+function openSubscribeDialog(message = '') {
+  if (message) errorText.value = message
+  subscribeDialogVisible.value = true
+}
+
+async function handleSubscribeRefresh() {
+  errorText.value = ''
+  await auth.fetchProfile()
+}
+
 async function sendMessage() {
   const text = inputText.value.trim()
   const images = [...pendingImages.value]
   if ((!text && !images.length) || sending.value) return
+  if (!hasActiveSubscription() && (auth.user?.free_chats_left ?? 0) <= 0) {
+    openSubscribeDialog('免费次数已用完，请先订阅后继续使用')
+    return
+  }
+  const optimisticMessageId = Date.now()
   inputText.value = ''
   pendingImages.value = []
   sending.value = true
@@ -248,7 +270,7 @@ async function sendMessage() {
   streamText.value = ''
   errorText.value = ''
 
-  messages.value.push({ id: Date.now(), role: 'user', content: text || '(图片)', images, docs: [], created_at: new Date().toISOString() })
+  messages.value.push({ id: optimisticMessageId, role: 'user', content: text || '(图片)', images, docs: [], created_at: new Date().toISOString() })
   scrollToBottom()
 
   try {
@@ -681,6 +703,9 @@ onUnmounted(() => {
             <el-icon :size="16"><SwitchButton /></el-icon>
           </button>
         </div>
+        <button class="subscribe-entry" @click="openSubscribeDialog()">
+          {{ hasActiveSubscription() ? '管理订阅' : '升级订阅' }}
+        </button>
       </div>
     </aside>
 
@@ -888,6 +913,8 @@ onUnmounted(() => {
     <img :src="previewImageUrl" class="image-preview-img" @click.stop />
     <button class="image-preview-close" @click="closeImagePreview">&times;</button>
   </div>
+
+  <SubscriptionCheckoutDialog v-model="subscribeDialogVisible" @refreshed="handleSubscribeRefresh" />
 </template>
 
 <style scoped>
@@ -984,6 +1011,12 @@ onUnmounted(() => {
 .plan-badge { color: #34d399; font-weight: 600; }
 .logout-btn { background: none; border: none; color: #64748b; cursor: pointer; padding: 6px; border-radius: 8px; transition: all 0.15s; }
 .logout-btn:hover { background: rgba(239,68,68,0.15); color: #f87171; }
+.subscribe-entry {
+  margin-top: 10px; width: 100%; border: 1px solid rgba(96,165,250,0.28); background: rgba(37,99,235,0.14);
+  color: #dbeafe; border-radius: 12px; padding: 10px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s;
+}
+.subscribe-entry:hover { background: rgba(37,99,235,0.22); border-color: rgba(147,197,253,0.42); }
 
 /* ---- Context Menu ---- */
 .ctx-menu {

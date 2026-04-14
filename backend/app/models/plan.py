@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, DECIMAL, Enum, Integer, String, func
+from sqlalchemy import BigInteger, DateTime, DECIMAL, Enum, Integer, JSON, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -18,6 +18,7 @@ class Plan(Base):
     duration_days: Mapped[int] = mapped_column(Integer, nullable=False)
     chat_limit: Mapped[int] = mapped_column(Integer, default=-1)
     description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    display_config: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     is_active: Mapped[int] = mapped_column(Integer, default=1)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

@@ -9,7 +9,7 @@ const router = createRouter({
     { path: '/admin/login', name: 'AdminLogin', component: () => import('@/views/admin/Login.vue') },
     {
       path: '/admin',
-      component: () => import('@/views/admin/Layout.vue'),
+      component: () => import('@/views/admin/LayoutShell.vue'),
       meta: { requiresAdmin: true },
       children: [
         { path: '', redirect: '/admin/dashboard' },
@@ -23,10 +23,11 @@ const router = createRouter({
         { path: 'banned-words', name: 'AdminBannedWords', component: () => import('@/views/admin/BannedWords.vue') },
         { path: 'redeem-codes', name: 'AdminRedeemCodes', component: () => import('@/views/admin/RedeemCodes.vue') },
         { path: 'invite-codes', name: 'AdminInviteCodes', component: () => import('@/views/admin/InviteCodes.vue') },
-        { path: 'plans', name: 'AdminPlans', component: () => import('@/views/admin/Plans.vue') },
+        { path: 'plans', name: 'AdminPlans', component: () => import('@/views/admin/SubscriptionPlans.vue') },
         { path: 'feishu', name: 'AdminFeishu', component: () => import('@/views/admin/FeishuRoutes.vue') },
         { path: 'register', name: 'AdminRegister', component: () => import('@/views/admin/RegisterConfig.vue') },
-        { path: 'payment', name: 'AdminPayment', component: () => import('@/views/admin/PaymentConfig.vue') },
+        { path: 'payment', name: 'AdminPayment', component: () => import('@/views/admin/PaymentChannels.vue') },
+        { path: 'payment-orders', name: 'AdminPaymentOrders', component: () => import('@/views/admin/PaymentOrders.vue') },
         { path: 'wecom', name: 'AdminWecom', component: () => import('@/views/admin/WecomConfig.vue') },
         { path: 'expire-reminders', name: 'AdminExpireReminders', component: () => import('@/views/admin/ExpireReminders.vue') },
         { path: 'token-usage', name: 'AdminTokenUsage', component: () => import('@/views/admin/TokenUsage.vue') },

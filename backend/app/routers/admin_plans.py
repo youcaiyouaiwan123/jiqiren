@@ -22,6 +22,7 @@ class PlanBody(BaseModel):
     duration_days: int | None = None
     chat_limit: int | None = None
     description: str | None = None
+    display_config: dict | None = None
     is_active: int | None = None
     sort_order: int | None = None
 
