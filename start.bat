@@ -29,7 +29,7 @@ echo ==============================
 echo   Starting Backend (8015)
 echo ==============================
 cd /d "%~dp0backend"
-start "Backend" cmd /k "python -m alembic -c alembic.ini upgrade head && python -m uvicorn app.main_v2:app --host 0.0.0.0 --port 8015 --reload"
+start "Backend" cmd /k "python -m alembic -c alembic.ini upgrade head && python -m uvicorn app.main:app --host 0.0.0.0 --port 8015 --reload"
 
 echo.
 echo Redis:    localhost:6379
