@@ -72,7 +72,7 @@ class Settings(BaseSettings):
         raw = (self.KNOWLEDGE_INDEX_DIR or "").strip() or self._default_knowledge_index_dir
         return str(Path(raw).expanduser().resolve())
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": str(_backend_dir / ".env"), "env_file_encoding": "utf-8"}
 
 
 @lru_cache

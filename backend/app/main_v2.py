@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
 from app.config import get_settings
-from app.core.database import async_session
+from app.core.database import async_session, engine
 from app.core.logging_config import setup_logging
 from app.core.redis import close_redis, init_redis
 from app.core.security import hash_password
@@ -126,6 +126,7 @@ async def lifespan(app: FastAPI):
     logger.info("========== 应用关闭 ==========")
     await stop_feishu_sync_worker()
     await close_redis()
+    await engine.dispose()
     logger.info("Redis 连接已关闭")
 
 
