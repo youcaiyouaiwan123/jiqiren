@@ -16,6 +16,7 @@ from app.core.logging_config import setup_logging
 from app.core.redis import close_redis, init_redis
 from app.core.security import hash_password
 from app.models import *  # noqa: F401,F403
+from app.services.analytics_rollup_runtime import start_analytics_rollup_worker, stop_analytics_rollup_worker
 from app.services.feishu_sync_runtime import start_feishu_sync_worker, stop_feishu_sync_worker
 from app.services.knowledge_config_service import (
     build_effective_knowledge_config,
@@ -106,6 +107,12 @@ async def lifespan(app: FastAPI):
 
     await _seed_db()
     await start_feishu_sync_worker()
+    await start_analytics_rollup_worker()
+    logger.info(
+        "Analytics rollup worker configured | refresh_minutes=%s recent_days=%s",
+        settings.ANALYTICS_ROLLUP_REFRESH_MINUTES,
+        settings.ANALYTICS_ROLLUP_RECENT_DAYS,
+    )
 
     async with async_session() as session:
         knowledge_cfg = await load_knowledge_config_map(session)
@@ -124,6 +131,7 @@ async def lifespan(app: FastAPI):
     logger.info("========== 应用就绪 ==========")
     yield
     logger.info("========== 应用关闭 ==========")
+    await stop_analytics_rollup_worker()
     await stop_feishu_sync_worker()
     await close_redis()
     await engine.dispose()

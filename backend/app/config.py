@@ -32,6 +32,13 @@ class Settings(BaseSettings):
     CLAUDE_MODEL: str = "claude-sonnet-4-20250514"
     CLAUDE_MAX_TOKENS: int = 2048
 
+    # Analytics / lifecycle
+    ANALYTICS_ROLLUP_REFRESH_MINUTES: int = 15
+    ANALYTICS_ROLLUP_RECENT_DAYS: int = 7
+    MESSAGE_ARCHIVE_AFTER_DAYS: int = 180
+    TOKEN_USAGE_ARCHIVE_AFTER_DAYS: int = 180
+    CONVERSATION_ARCHIVE_AFTER_DAYS: int = 365
+
     # 飞书
     FEISHU_APP_ID: str = ""
     FEISHU_APP_SECRET: str = ""
