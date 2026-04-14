@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+node_modules/
+dist/
+backend/logs/
+*.log
+knowledge/.obsidian/
+backend/data/chroma/
+backend/uploads/
