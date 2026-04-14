@@ -3,7 +3,11 @@ import asyncio
 import logging
 
 from app.core.database import async_session, engine
-from app.services.analytics_rollup_service import ensure_rollup_coverage, ensure_rollups, resolve_rollup_day_range
+from app.services.analytics_rollup_service import (
+    ensure_rollups,
+    resolve_full_rollup_day_range,
+    resolve_rollup_day_range,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger(__name__)
@@ -22,7 +26,8 @@ async def main() -> None:
     args = parse_args()
     async with async_session() as session:
         if args.full:
-            start_day, end_day = await ensure_rollup_coverage(session, include_models=True)
+            start_day, end_day = await resolve_full_rollup_day_range(session)
+            await ensure_rollups(session, start_day, end_day, include_models=True)
         else:
             start_day, end_day = resolve_rollup_day_range(args.start_date, args.end_date, default_days=args.days)
             await ensure_rollups(session, start_day, end_day, include_models=True)

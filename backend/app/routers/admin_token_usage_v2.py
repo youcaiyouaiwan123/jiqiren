@@ -12,9 +12,9 @@ from app.models.analytics_model_daily import AnalyticsModelDaily
 from app.models.token_usage import TokenUsage
 from app.models.user import User
 from app.services.analytics_rollup_service import (
-    ensure_rollup_coverage,
-    ensure_rollups,
     parse_datetime_range,
+    refresh_recent_rollups_best_effort,
+    refresh_rollups_for_range_best_effort,
     resolve_rollup_day_range,
 )
 from app.utils.response import success
@@ -49,9 +49,9 @@ async def token_summary(
     if not keyword:
         if start_date or end_date:
             start_day, end_day = resolve_rollup_day_range(start_date, end_date, default_days=30)
-            await ensure_rollups(db, start_day, end_day, include_models=bool(model))
+            await refresh_rollups_for_range_best_effort(db, start_day, end_day, include_models=bool(model))
         else:
-            await ensure_rollup_coverage(db, include_models=True)
+            await refresh_recent_rollups_best_effort(db, include_models=True)
             start_day = end_day = None
 
         if model:
@@ -107,7 +107,7 @@ async def cost_by_model(
 ):
     if start_date or end_date:
         start_day, end_day = resolve_rollup_day_range(start_date, end_date, default_days=30)
-        await ensure_rollups(db, start_day, end_day, include_models=True)
+        await refresh_rollups_for_range_best_effort(db, start_day, end_day, include_models=True)
         stmt = (
             select(
                 AnalyticsModelDaily.model,
@@ -122,7 +122,7 @@ async def cost_by_model(
             .order_by(func.coalesce(func.sum(AnalyticsModelDaily.cost_usd), 0).desc())
         )
     else:
-        await ensure_rollup_coverage(db, include_models=True)
+        await refresh_recent_rollups_best_effort(db, include_models=True)
         stmt = (
             select(
                 AnalyticsModelDaily.model,
@@ -157,7 +157,7 @@ async def token_daily(
     db: AsyncSession = Depends(get_db),
 ):
     start_day, end_day = resolve_rollup_day_range(None, None, default_days=days)
-    await ensure_rollups(db, start_day, end_day, include_models=False)
+    await refresh_rollups_for_range_best_effort(db, start_day, end_day, include_models=False)
     rows = (
         await db.execute(
             select(AnalyticsDaily)

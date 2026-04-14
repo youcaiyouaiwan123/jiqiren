@@ -252,7 +252,15 @@ async def send_message(
     user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    user = await db.get(User, user_id)
+    conv = None
+    if body.conversation_id:
+        conv = await db.get(Conversation, body.conversation_id)
+        if not conv or conv.user_id != user_id:
+            return fail(1004, "会话不存在")
+
+    user = (
+        await db.execute(select(User).where(User.id == user_id).with_for_update())
+    ).scalar_one_or_none()
     if not user:
         return fail(1004, "用户不存在")
     if user.status == "banned":
@@ -265,24 +273,16 @@ async def send_message(
         and user.subscribe_expire
         and user.subscribe_expire > now
     )
-    free_chats_left = user.free_chats_left
+    free_chats_left = user.free_chats_left or 0
 
     if not has_subscription:
-        quota_result = await db.execute(
-            update(User)
-            .where(User.id == user_id, User.free_chats_left > 0)
-            .values(free_chats_left=User.free_chats_left - 1)
-        )
-        if quota_result.rowcount == 0:
+        if free_chats_left <= 0:
             logger.info("[对话] 配额不足 | user_id=%s free_left=%s", user_id, user.free_chats_left)
             return fail(2001, "免费次数已用完，请订阅后继续使用")
-        free_chats_left = max(0, (user.free_chats_left or 0) - 1)
+        user.free_chats_left = free_chats_left - 1
+        free_chats_left = user.free_chats_left
 
-    if body.conversation_id:
-        conv = await db.get(Conversation, body.conversation_id)
-        if not conv or conv.user_id != user_id:
-            return fail(1004, "会话不存在")
-    else:
+    if conv is None:
         conv = Conversation(user_id=user_id, title=body.message[:50])
         db.add(conv)
         await db.flush()

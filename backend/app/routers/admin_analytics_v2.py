@@ -10,13 +10,13 @@ from app.core.database import get_db
 from app.core.deps import get_current_admin
 from app.models.analytics_daily import AnalyticsDaily
 from app.models.analytics_model_daily import AnalyticsModelDaily
+from app.models.analytics_user_daily import AnalyticsUserDaily
 from app.models.message import Message
 from app.models.user import User
 from app.services.analytics_rollup_service import (
-    ensure_rollup_coverage,
-    ensure_rollups,
     parse_datetime_range,
-    parse_datetime_value,
+    refresh_recent_rollups_best_effort,
+    refresh_rollups_for_range_best_effort,
     resolve_rollup_day_range,
 )
 from app.utils.response import success
@@ -24,23 +24,8 @@ from app.utils.response import success
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/admin/analytics", tags=["管理端数据分析"])
-
-
-def _parse_dt(val: str | None) -> datetime | None:
-    return parse_datetime_value(val)
-
-
 def _parse_range(start_date: str | None, end_date: str | None):
     return parse_datetime_range(start_date, end_date)
-
-
-def _date_filter(col, s, e):
-    conds = []
-    if s:
-        conds.append(col >= s)
-    if e:
-        conds.append(col < e)
-    return conds
 
 
 @router.get("/overview")
@@ -50,12 +35,12 @@ async def overview(
     admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    s, e = _parse_range(start_date, end_date)
     today = datetime.utcnow().date()
+    has_explicit_range = bool(start_date or end_date)
 
-    if start_date or end_date:
+    if has_explicit_range:
         start_day, end_day = resolve_rollup_day_range(start_date, end_date, default_days=1)
-        await ensure_rollups(db, start_day, end_day, include_models=False)
+        await refresh_rollups_for_range_best_effort(db, start_day, end_day, include_models=False)
         totals_stmt = (
             select(
                 func.coalesce(func.sum(AnalyticsDaily.new_users), 0),
@@ -69,7 +54,7 @@ async def overview(
             .where(AnalyticsDaily.stat_date <= end_day)
         )
     else:
-        await ensure_rollup_coverage(db, include_models=False)
+        await refresh_recent_rollups_best_effort(db, include_models=False)
         totals_stmt = select(
             func.coalesce(func.sum(AnalyticsDaily.new_users), 0),
             func.coalesce(func.sum(AnalyticsDaily.conversation_count), 0),
@@ -81,12 +66,17 @@ async def overview(
 
     totals = (await db.execute(totals_stmt)).one()
 
-    await ensure_rollups(db, today, today, include_models=False)
+    if has_explicit_range and (today < start_day or today > end_day):
+        await refresh_rollups_for_range_best_effort(db, today, today, include_models=False)
     today_rollup = await db.get(AnalyticsDaily, today)
 
-    active_stmt = select(func.count(distinct(Message.user_id)))
-    for condition in _date_filter(Message.created_at, s, e):
-        active_stmt = active_stmt.where(condition)
+    active_stmt = select(func.count(distinct(AnalyticsUserDaily.user_id)))
+    if has_explicit_range:
+        active_stmt = (
+            active_stmt
+            .where(AnalyticsUserDaily.stat_date >= start_day)
+            .where(AnalyticsUserDaily.stat_date <= end_day)
+        )
     active_users = (await db.execute(active_stmt)).scalar() or 0
 
     return success({
@@ -114,7 +104,7 @@ async def trends(
     db: AsyncSession = Depends(get_db),
 ):
     start_day, end_day = resolve_rollup_day_range(start_date, end_date, default_days=days)
-    await ensure_rollups(db, start_day, end_day, include_models=False)
+    await refresh_rollups_for_range_best_effort(db, start_day, end_day, include_models=False)
     rows = (
         await db.execute(
             select(AnalyticsDaily)
@@ -192,7 +182,7 @@ async def model_stats(
     db: AsyncSession = Depends(get_db),
 ):
     start_day, end_day = resolve_rollup_day_range(start_date, end_date, default_days=days)
-    await ensure_rollups(db, start_day, end_day, include_models=True)
+    await refresh_rollups_for_range_best_effort(db, start_day, end_day, include_models=True)
     rows = (
         await db.execute(
             select(

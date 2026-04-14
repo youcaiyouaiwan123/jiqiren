@@ -1,6 +1,7 @@
 """语音转文字服务：使用 faster-whisper 本地推理"""
 import asyncio
 import logging
+import os
 import tempfile
 from pathlib import Path
 
@@ -13,12 +14,31 @@ _model_lock = asyncio.Lock()
 MODEL_SIZE = "medium"
 
 
+def _sanitize_sslkeylogfile_env() -> None:
+    """避免无权限的 SSLKEYLOGFILE 影响 requests/urllib3 初始化。"""
+    sslkeylogfile = os.environ.get("SSLKEYLOGFILE")
+    if not sslkeylogfile:
+        return
+
+    try:
+        with Path(sslkeylogfile).expanduser().open("a", encoding="utf-8"):
+            pass
+    except OSError as exc:
+        os.environ.pop("SSLKEYLOGFILE", None)
+        logger.warning(
+            "[STT] SSLKEYLOGFILE 不可用，已在当前进程禁用 TLS key logging | path=%s | error=%s",
+            sslkeylogfile,
+            exc,
+        )
+
+
 def _load_model():
     """同步加载 faster-whisper 模型（首次调用时下载，约 500MB）"""
     global _model
     if _model is not None:
         return _model
     try:
+        _sanitize_sslkeylogfile_env()
         from faster_whisper import WhisperModel
         logger.info("[STT] 正在加载 faster-whisper 模型: %s ...", MODEL_SIZE)
         _model = WhisperModel(MODEL_SIZE, device="cpu", compute_type="int8")
