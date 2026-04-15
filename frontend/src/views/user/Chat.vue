@@ -28,6 +28,31 @@ const contextMenuPos = ref({ x: 0, y: 0 })
 const renamingConvId = ref<number | null>(null)
 const renameText = ref('')
 
+const AI_AVATAR_FILE = 'abaojie.png'
+const aiAvatarUrl = `${import.meta.env.BASE_URL}${AI_AVATAR_FILE}`
+const aiAvatarLoadFailed = ref(false)
+
+const ACTIVE_CONVERSATION_STORAGE_KEY = 'user_chat_active_conv_id'
+
+function handleAiAvatarError() {
+  aiAvatarLoadFailed.value = true
+}
+
+function persistActiveConversationId(convId: number | null) {
+  if (convId == null) {
+    sessionStorage.removeItem(ACTIVE_CONVERSATION_STORAGE_KEY)
+    return
+  }
+  sessionStorage.setItem(ACTIVE_CONVERSATION_STORAGE_KEY, String(convId))
+}
+
+function restoreActiveConversationId() {
+  const raw = sessionStorage.getItem(ACTIVE_CONVERSATION_STORAGE_KEY)
+  if (!raw) return null
+  const parsed = Number(raw)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null
+}
+
 interface AnnounceItem { id: number; title: string; content: string; type: string; is_pinned: number }
 const announcements = ref<AnnounceItem[]>([])
 const showAnnounceBanner = ref(true)
@@ -95,6 +120,7 @@ const groupedConversations = computed<ConvGroup[]>(() => {
 async function selectConv(conv: Conversation) {
   if (renamingConvId.value) return
   activeConvId.value = conv.id
+  persistActiveConversationId(conv.id)
   await loadMessages(conv.id)
 }
 
@@ -108,6 +134,7 @@ async function loadMessages(convId: number) {
 
 function newChat() {
   activeConvId.value = null
+  persistActiveConversationId(null)
   messages.value = []
   streamText.value = ''
   errorText.value = ''
@@ -153,6 +180,7 @@ async function deleteConv(convId: number) {
     conversations.value = conversations.value.filter(c => c.id !== convId)
     if (activeConvId.value === convId) {
       activeConvId.value = null
+      persistActiveConversationId(null)
       messages.value = []
     }
   } catch { /* ignore */ }
@@ -326,7 +354,8 @@ async function sendMessage() {
               scrollToBottom()
             } else if (currentEvent === 'done' || 'conversation_id' in obj) {
               const doneData = obj as ChatDoneData
-              activeConvId.value = obj.conversation_id
+              activeConvId.value = doneData.conversation_id
+              persistActiveConversationId(doneData.conversation_id)
               if (auth.user) {
                 auth.user.free_chats_left = doneData.quota?.free_chats_left ?? auth.user.free_chats_left
               }
@@ -365,6 +394,7 @@ function scrollToBottom() {
 }
 
 function handleLogout() {
+  persistActiveConversationId(null)
   auth.logout()
   router.push('/login')
 }
@@ -620,6 +650,15 @@ onMounted(async () => {
   document.addEventListener('click', onDocumentClick)
   loadAnnouncements()
   await loadConversations()
+  const savedConvId = restoreActiveConversationId()
+  if (!savedConvId) return
+  const savedConversation = conversations.value.find(c => c.id === savedConvId)
+  if (!savedConversation) {
+    persistActiveConversationId(null)
+    return
+  }
+  activeConvId.value = savedConversation.id
+  await loadMessages(savedConversation.id)
 })
 
 onUnmounted(() => {
@@ -774,7 +813,8 @@ onUnmounted(() => {
         <!-- Messages -->
         <div v-for="msg in messages" :key="msg.id" class="msg-row" :class="msg.role">
           <div v-if="msg.role === 'assistant'" class="msg-avatar ai">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect width="20" height="20" rx="6" fill="#2563eb"/><circle cx="7.5" cy="8.5" r="1.5" fill="white"/><circle cx="12.5" cy="8.5" r="1.5" fill="white"/><path d="M7.5 13q2.5 2 5 0" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
+            <img v-if="aiAvatarUrl && !aiAvatarLoadFailed" :src="aiAvatarUrl" alt="AI avatar" class="msg-avatar-img" @error="handleAiAvatarError" />
+            <svg v-else width="20" height="20" viewBox="0 0 20 20" fill="none"><rect width="20" height="20" rx="6" fill="#2563eb"/><circle cx="7.5" cy="8.5" r="1.5" fill="white"/><circle cx="12.5" cy="8.5" r="1.5" fill="white"/><path d="M7.5 13q2.5 2 5 0" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
           </div>
           <div class="msg-body">
             <div v-if="msg.images?.length" class="msg-images">
@@ -788,11 +828,7 @@ onUnmounted(() => {
                 <div v-if="doc.snippet" class="doc-snippet">{{ doc.snippet }}</div>
               </div>
             </div>
-            <div v-if="msg.role === 'assistant' && (msg.retrieval?.status === 'miss' || (msg.retrieval?.status === 'success' && msg.retrieval?.mode === 'keyword_fallback'))" class="retrieval-card" :class="msg.retrieval?.status === 'miss' ? 'retrieval-miss' : 'retrieval-fallback'">
-              <div class="retrieval-title">{{ retrievalTitle(msg.retrieval) }}</div>
-              <div class="retrieval-text">{{ retrievalDetail(msg.retrieval) }}</div>
-              <div v-if="retrievalProviderLabel(msg.retrieval)" class="retrieval-meta">{{ retrievalProviderLabel(msg.retrieval) }}</div>
-            </div>
+            <!-- retrieval status card hidden from user view -->
             <div class="msg-time">{{ formatTime(msg.created_at) }}</div>
           </div>
           <div v-if="msg.role === 'user'" class="msg-avatar user">
@@ -803,7 +839,8 @@ onUnmounted(() => {
         <!-- Thinking -->
         <div v-if="thinking && !streamText" class="msg-row assistant">
           <div class="msg-avatar ai">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect width="20" height="20" rx="6" fill="#2563eb"/><circle cx="7.5" cy="8.5" r="1.5" fill="white"/><circle cx="12.5" cy="8.5" r="1.5" fill="white"/><path d="M7.5 13q2.5 2 5 0" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
+            <img v-if="aiAvatarUrl && !aiAvatarLoadFailed" :src="aiAvatarUrl" alt="AI avatar" class="msg-avatar-img" @error="handleAiAvatarError" />
+            <svg v-else width="20" height="20" viewBox="0 0 20 20" fill="none"><rect width="20" height="20" rx="6" fill="#2563eb"/><circle cx="7.5" cy="8.5" r="1.5" fill="white"/><circle cx="12.5" cy="8.5" r="1.5" fill="white"/><path d="M7.5 13q2.5 2 5 0" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
           </div>
           <div class="msg-body">
             <div class="msg-bubble assistant thinking-bubble">
@@ -815,7 +852,8 @@ onUnmounted(() => {
         <!-- Error -->
         <div v-if="errorText" class="msg-row assistant">
           <div class="msg-avatar ai">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect width="20" height="20" rx="6" fill="#ef4444"/><circle cx="7.5" cy="8.5" r="1.5" fill="white"/><circle cx="12.5" cy="8.5" r="1.5" fill="white"/><path d="M7.5 13q2.5-2 5 0" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
+            <img v-if="aiAvatarUrl && !aiAvatarLoadFailed" :src="aiAvatarUrl" alt="AI avatar" class="msg-avatar-img" @error="handleAiAvatarError" />
+            <svg v-else width="20" height="20" viewBox="0 0 20 20" fill="none"><rect width="20" height="20" rx="6" fill="#ef4444"/><circle cx="7.5" cy="8.5" r="1.5" fill="white"/><circle cx="12.5" cy="8.5" r="1.5" fill="white"/><path d="M7.5 13q2.5-2 5 0" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
           </div>
           <div class="msg-body">
             <div class="msg-bubble assistant error-bubble">{{ errorText }}</div>
@@ -825,7 +863,8 @@ onUnmounted(() => {
         <!-- Streaming -->
         <div v-if="streamText" class="msg-row assistant">
           <div class="msg-avatar ai">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect width="20" height="20" rx="6" fill="#2563eb"/><circle cx="7.5" cy="8.5" r="1.5" fill="white"/><circle cx="12.5" cy="8.5" r="1.5" fill="white"/><path d="M7.5 13q2.5 2 5 0" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
+            <img v-if="aiAvatarUrl && !aiAvatarLoadFailed" :src="aiAvatarUrl" alt="AI avatar" class="msg-avatar-img" @error="handleAiAvatarError" />
+            <svg v-else width="20" height="20" viewBox="0 0 20 20" fill="none"><rect width="20" height="20" rx="6" fill="#2563eb"/><circle cx="7.5" cy="8.5" r="1.5" fill="white"/><circle cx="12.5" cy="8.5" r="1.5" fill="white"/><path d="M7.5 13q2.5 2 5 0" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
           </div>
           <div class="msg-body">
             <div class="msg-bubble assistant">{{ streamText }}<span class="cursor">|</span></div>
@@ -1084,11 +1123,12 @@ onUnmounted(() => {
 .msg-row.user { flex-direction: row-reverse; }
 .msg-avatar {
   width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center;
-  justify-content: center; flex-shrink: 0; margin-top: 2px;
+  justify-content: center; flex-shrink: 0; margin-top: 2px; overflow: hidden;
 }
-.msg-avatar.ai { background: #eff6ff; }
+.msg-avatar.ai { width: 48px; height: 48px; border-radius: 14px; background: #eff6ff; }
 .msg-avatar.user { background: #2563eb; }
-.msg-body { min-width: 0; max-width: calc(100% - 52px); }
+.msg-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
+.msg-body { min-width: 0; max-width: calc(100% - 68px); }
 .msg-bubble {
   padding: 10px 16px; border-radius: 16px; font-size: 14px; line-height: 1.7;
   white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word;
