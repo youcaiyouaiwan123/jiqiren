@@ -314,8 +314,8 @@ async function handleRegister() {
 .login-page {
   min-height: 100vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-end;
+  justify-content: flex-start;
   background-color: #5e0b32;
   background-image:
     url('/123.png'),
@@ -324,20 +324,20 @@ async function handleRegister() {
   background-position: center center, center center, center center;
   background-size: contain, cover, cover;
   background-repeat: no-repeat, no-repeat, no-repeat;
-  padding: 24px;
+  padding: 48px 48px 48px 180px;
 }
 .login-card {
   display: flex;
   width: 100%;
   max-width: 900px;
   min-height: 540px;
-  background: transparent;
+  background: rgba(28, 10, 24, 0.45);
   border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 10px 28px rgba(28, 10, 24, 0.08);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  max-width: 420px !important;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 18px 48px rgba(28, 10, 24, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  max-width: 560px !important;
   overflow: hidden;
 }
 .login-brand {
@@ -377,18 +377,18 @@ async function handleRegister() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.03);
-  padding: 40px 32px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 48px 48px;
 }
 .form-inner {
   width: 100%;
-  max-width: 340px;
+  max-width: 440px;
 }
 .form-inner :deep(.el-input__wrapper) {
-  background-color: rgba(255, 255, 255, 0.18) !important;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.28) inset !important;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background-color: rgba(255, 255, 255, 0.38) !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45) inset !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 .form-inner :deep(.el-input__wrapper.is-focus) {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.55) inset !important;
@@ -423,15 +423,15 @@ async function handleRegister() {
   font-size: 15px !important;
   font-weight: 600;
   border-radius: 8px !important;
-  background: rgba(255, 255, 255, 0.16) !important;
-  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  background: rgba(255, 255, 255, 0.32) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
   color: #fff !important;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
 .login-btn:hover {
-  background: rgba(255, 255, 255, 0.26) !important;
-  border-color: rgba(255, 255, 255, 0.55) !important;
+  background: rgba(255, 255, 255, 0.45) !important;
+  border-color: rgba(255, 255, 255, 0.7) !important;
 }
 .switch-text {
   margin-top: 24px;

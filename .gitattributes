@@ -1,0 +1,6 @@
+# 强制 Unix 行尾，避免 Windows 开发者提交 CRLF 导致容器内 shell 脚本无法执行
+*.sh text eol=lf
+docker-entrypoint.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

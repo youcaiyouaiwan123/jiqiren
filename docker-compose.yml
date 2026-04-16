@@ -1,0 +1,111 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: abaojie-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=caching_sha2_password
+      - --max_connections=500
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      # 用 MYSQL_PWD 环境变量传密码，避免密码含 $ ! " ' 等字符把 shell 解析炸掉
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h localhost -uroot --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    # 生产环境不建议暴露 3306，如需外部访问再打开
+    # ports:
+    #   - "3306:3306"
+
+  redis:
+    image: redis:7-alpine
+    container_name: abaojie-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # ports:
+    #   - "6379:6379"
+
+  backend:
+    build:
+      context: ./backend
+    container_name: abaojie-backend
+    restart: unless-stopped
+    environment:
+      # --- 数据库 / Redis ---
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      # --- JWT ---
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_EXPIRE_MINUTES: ${JWT_ACCESS_EXPIRE_MINUTES:-120}
+      JWT_REFRESH_EXPIRE_DAYS: ${JWT_REFRESH_EXPIRE_DAYS:-7}
+      # --- AI 密钥 ---
+      CLAUDE_API_KEY: ${CLAUDE_API_KEY:-}
+      CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-sonnet-4-20250514}
+      CLAUDE_MAX_TOKENS: ${CLAUDE_MAX_TOKENS:-2048}
+      # --- 飞书 ---
+      FEISHU_APP_ID: ${FEISHU_APP_ID:-}
+      FEISHU_APP_SECRET: ${FEISHU_APP_SECRET:-}
+      FEISHU_FAQ_APP_TOKEN: ${FEISHU_FAQ_APP_TOKEN:-}
+      FEISHU_FAQ_TABLE_ID: ${FEISHU_FAQ_TABLE_ID:-}
+      FEISHU_DOC_APP_TOKEN: ${FEISHU_DOC_APP_TOKEN:-}
+      FEISHU_DOC_TABLE_ID: ${FEISHU_DOC_TABLE_ID:-}
+      # --- 知识库 ---
+      KNOWLEDGE_VAULT_PATH: /app/knowledge
+      KNOWLEDGE_INDEX_DIR: /app/data/chroma/knowledge
+      KNOWLEDGE_EMBEDDING_PROVIDER: ${KNOWLEDGE_EMBEDDING_PROVIDER:-openai}
+      KNOWLEDGE_EMBEDDING_MODEL: ${KNOWLEDGE_EMBEDDING_MODEL:-}
+      KNOWLEDGE_GIT_REPO_URL: ${KNOWLEDGE_GIT_REPO_URL:-}
+      KNOWLEDGE_GIT_BRANCH: ${KNOWLEDGE_GIT_BRANCH:-main}
+      # --- 时区 ---
+      TZ: Asia/Shanghai
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
+      - backend_data:/app/data
+      - ./knowledge:/app/knowledge
+      - whisper_cache:/root/.cache/huggingface
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # 开发调试时可打开，生产建议仅暴露给前端 nginx
+    # ports:
+    #   - "8015:8015"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: abaojie-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
+  redis_data:
+  backend_data:
+  whisper_cache:
