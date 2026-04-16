@@ -445,7 +445,7 @@ async def send_verify_code(body: SendCodeBody, request: Request, db: AsyncSessio
             return fail(1017, _sms_channel_error_message(cfg))
         if "phone" not in cfg["register_methods"]:
             return fail(1007, "该注册方式暂不支持")
-        exists = (await db.execute(select(User).where(User.phone == target))).scalar_one_or_none()
+        exists = (await db.execute(select(User).where(User.phone == target, User.deleted_at.is_(None)))).scalar_one_or_none()
         if exists:
             return fail(1005, "该手机号已注册")
     else:
@@ -455,7 +455,7 @@ async def send_verify_code(body: SendCodeBody, request: Request, db: AsyncSessio
             return fail(1015, "邮箱格式不正确")
         if not _email_channel_available(cfg):
             return fail(1016, "邮件服务未配置")
-        exists = (await db.execute(select(User).where(User.email == target))).scalar_one_or_none()
+        exists = (await db.execute(select(User).where(User.email == target, User.deleted_at.is_(None)))).scalar_one_or_none()
         if exists:
             return fail(1005, "该邮箱已注册")
     redis = get_redis(required=False)
@@ -537,11 +537,11 @@ async def register(body: RegisterBody, db: AsyncSession = Depends(get_db)):
         return fail(1010, "请输入验证码")
     # 唯一性校验
     if phone:
-        exists = (await db.execute(select(User).where(User.phone == phone))).scalar_one_or_none()
+        exists = (await db.execute(select(User).where(User.phone == phone, User.deleted_at.is_(None)))).scalar_one_or_none()
         if exists:
             return fail(1005, "该手机号已注册")
     if email:
-        exists = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
+        exists = (await db.execute(select(User).where(User.email == email, User.deleted_at.is_(None)))).scalar_one_or_none()
         if exists:
             return fail(1005, "该邮箱已注册")
     target_type = "phone" if phone else "email"
@@ -597,6 +597,8 @@ async def login(body: LoginBody, db: AsyncSession = Depends(get_db)):
     user = (await db.execute(stmt)).scalar_one_or_none()
     if not user:
         return fail(1004, "账号不存在")
+    if user.deleted_at is not None:
+        return fail(1004, "账号已注销")
     if not verify_password(body.password, user.password_hash):
         return fail(1001, "密码错误")
     if user.status == "banned":

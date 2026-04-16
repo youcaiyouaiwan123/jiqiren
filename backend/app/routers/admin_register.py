@@ -64,6 +64,7 @@ async def update_register_config(body: RegisterConfigBody, admin: dict = Depends
         result = await db.execute(
             update(User)
             .where(User.subscribe_plan == "free")
+            .where(User.deleted_at.is_(None))
             .values(free_chats_left=synced_default_free_chats)
         )
         affected_users = result.rowcount or 0
@@ -83,6 +84,7 @@ async def sync_free_chats_to_existing_users(admin: dict = Depends(get_current_ad
     result = await db.execute(
         update(User)
         .where(User.subscribe_plan == "free")
+        .where(User.deleted_at.is_(None))
         .values(free_chats_left=default_free_chats)
     )
     logger.info("[注册设置] 手动同步免费次数=%s，影响用户数=%s，admin_id=%s", default_free_chats, result.rowcount, admin["admin_id"])

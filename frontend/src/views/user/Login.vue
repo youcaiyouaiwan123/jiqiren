@@ -191,8 +191,8 @@ async function handleRegister() {
 <template>
   <div class="login-page">
     <div class="login-card">
-      <!-- Left illustration area -->
-      <div class="login-brand">
+      <!-- Left illustration area (hidden) -->
+      <div v-if="false" class="login-brand">
         <!-- AI Chat illustration -->
         <svg class="brand-illustration" viewBox="0 0 320 400" fill="none" xmlns="http://www.w3.org/2000/svg">
           <!-- Chat bubbles background -->
@@ -316,7 +316,14 @@ async function handleRegister() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #e8ecf1;
+  background-color: #5e0b32;
+  background-image:
+    url('/123.png'),
+    radial-gradient(circle at top center, rgba(171, 33, 88, 0.52) 0%, rgba(122, 16, 60, 0.38) 34%, rgba(94, 11, 50, 0.96) 72%),
+    linear-gradient(180deg, #7b1143 0%, #5e0b32 42%, #430823 100%);
+  background-position: center center, center center, center center;
+  background-size: contain, cover, cover;
+  background-repeat: no-repeat, no-repeat, no-repeat;
   padding: 24px;
 }
 .login-card {
@@ -324,15 +331,19 @@ async function handleRegister() {
   width: 100%;
   max-width: 900px;
   min-height: 540px;
-  background: #fff;
+  background: transparent;
   border-radius: 20px;
-  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 10px 28px rgba(28, 10, 24, 0.08);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  max-width: 420px !important;
   overflow: hidden;
 }
 .login-brand {
   width: 380px;
   min-width: 380px;
-  background: linear-gradient(160deg, #1a365d 0%, #2c5282 50%, #2b6cb0 100%);
+  background: linear-gradient(160deg, rgba(26, 54, 93, 0.22) 0%, rgba(44, 82, 130, 0.18) 50%, rgba(43, 108, 176, 0.14) 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -366,21 +377,44 @@ async function handleRegister() {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 48px 44px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 40px 32px;
 }
 .form-inner {
   width: 100%;
   max-width: 340px;
 }
+.form-inner :deep(.el-input__wrapper) {
+  background-color: rgba(255, 255, 255, 0.18) !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.28) inset !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.form-inner :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.55) inset !important;
+}
+.form-inner :deep(.el-input__inner) {
+  color: #fff !important;
+  caret-color: #fff;
+}
+.form-inner :deep(.el-input__inner::placeholder) {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+.form-inner :deep(.el-input__prefix),
+.form-inner :deep(.el-input__suffix),
+.form-inner :deep(.el-input__icon) {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
 .form-title {
   font-size: 26px;
   font-weight: 700;
-  color: #1a202c;
+  color: #fff;
   margin-bottom: 6px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 .form-subtitle {
   font-size: 14px;
-  color: #a0aec0;
+  color: rgba(255, 255, 255, 0.78);
   margin-bottom: 0;
 }
 .login-btn {
@@ -389,20 +423,24 @@ async function handleRegister() {
   font-size: 15px !important;
   font-weight: 600;
   border-radius: 8px !important;
-  background: linear-gradient(135deg, #2b6cb0, #2c5282) !important;
-  border: none !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  color: #fff !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 .login-btn:hover {
-  background: linear-gradient(135deg, #3182ce, #2b6cb0) !important;
+  background: rgba(255, 255, 255, 0.26) !important;
+  border-color: rgba(255, 255, 255, 0.55) !important;
 }
 .switch-text {
   margin-top: 24px;
   text-align: center;
   font-size: 13px;
-  color: #a0aec0;
+  color: rgba(255, 255, 255, 0.75);
 }
 .switch-text button {
-  color: #2b6cb0;
+  color: #ffd3e1;
   font-weight: 600;
   margin-left: 4px;
   background: none;
@@ -410,7 +448,7 @@ async function handleRegister() {
   cursor: pointer;
 }
 .switch-text button:hover {
-  color: #1a365d;
+  color: #fff;
 }
 .reg-method-toggle {
   text-align: center;
@@ -428,15 +466,43 @@ async function handleRegister() {
   min-width: 110px;
   font-size: 13px !important;
   white-space: nowrap;
+  background: rgba(255, 255, 255, 0.14) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  color: #fff !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.send-code-btn:hover {
+  background: rgba(255, 255, 255, 0.22) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  color: #fff !important;
+}
+.send-code-btn.is-disabled,
+.send-code-btn.is-disabled:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+.reg-method-toggle :deep(.el-radio-button__inner) {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+.reg-method-toggle :deep(.el-radio-button.is-active .el-radio-button__inner) {
+  background: rgba(255, 255, 255, 0.28) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  color: #fff !important;
+  box-shadow: none !important;
 }
 .terms-text {
   font-size: 12px;
-  color: #a0aec0;
+  color: rgba(255, 255, 255, 0.7);
   text-align: center;
   margin-bottom: 16px;
 }
 .terms-text a {
-  color: #2b6cb0;
+  color: #ffd3e1;
   text-decoration: none;
 }
 .terms-text a:hover {

@@ -19,6 +19,20 @@ const list = ref<InviteCodeRow[]>([])
 const total = ref(0)
 const page = ref(1)
 
+function normalizeDateTime(value: unknown) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return ''
+  return raw
+    .replace('T', ' ')
+    .replace(/\.\d+/, '')
+    .replace(/Z$/, '')
+    .replace(/[+-]\d{2}:\d{2}$/, '')
+}
+
+function formatDateTime(value: unknown) {
+  return normalizeDateTime(value) || '-'
+}
+
 const genDialog = ref(false)
 const genForm = ref({ count: 10, expire_at: '', remark: '' })
 const generatedCodes = ref<string[]>([])
@@ -117,9 +131,15 @@ onMounted(fetchList)
         </template>
       </el-table-column>
       <el-table-column prop="used_by" label="使用用户" width="100" />
-      <el-table-column prop="used_at" label="使用时间" width="180" />
-      <el-table-column prop="expire_at" label="过期时间" width="180" />
-      <el-table-column prop="created_at" label="创建时间" width="180" />
+      <el-table-column label="使用时间" width="180">
+        <template #default="{ row }">{{ formatDateTime(row.used_at) }}</template>
+      </el-table-column>
+      <el-table-column label="过期时间" width="180">
+        <template #default="{ row }">{{ formatDateTime(row.expire_at) }}</template>
+      </el-table-column>
+      <el-table-column label="创建时间" width="180">
+        <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+      </el-table-column>
       <el-table-column label="操作" width="150" fixed="right">
         <template #default="{ row }">
           <el-button v-if="row.status === 'active' || row.status === 'disabled'" size="small" text :type="row.status === 'active' ? 'warning' : 'success'" @click="toggleStatus(row)">

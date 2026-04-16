@@ -177,55 +177,47 @@ async function runSync() {
 onMounted(fetchConfig)
 </script>
 
-<template>
+ <template>
   <div class="mx-auto max-w-6xl space-y-8 pb-6">
-    <div class="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-900 p-[1px] shadow-[0_24px_80px_-28px_rgba(15,23,42,0.55)]">
-      <div class="relative overflow-hidden rounded-[27px] bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.18),_transparent_28%),linear-gradient(135deg,rgba(15,23,42,0.98),rgba(30,41,59,0.96))] px-6 py-7 sm:px-8">
-        <div class="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-          <div class="max-w-2xl">
-            <span class="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium tracking-wide text-slate-200">
-              Knowledge Source Console
-            </span>
-            <h2 class="mt-4 text-2xl font-semibold tracking-tight text-white sm:text-3xl">知识源配置中心</h2>
-            <p class="mt-3 max-w-xl text-sm leading-6 text-slate-300">
-              在后台直接维护 Obsidian Vault 路径、索引目录和 Git 仓库信息。保存后，聊天检索和手动重建索引都会优先使用这里的配置。
-            </p>
+    <div class="rounded-[28px] border border-slate-200 bg-white px-5 py-4 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)] sm:px-6">
+      <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div class="min-w-0">
+            <h2 class="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">知识源配置中心</h2>
           </div>
-          <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:min-w-[520px]">
-            <div class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur-sm">
-              <div class="text-xs text-slate-300">知识目录</div>
-              <div class="mt-2 text-sm font-semibold text-white">{{ effective.vault_path ? '已配置' : '未配置' }}</div>
+          <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:min-w-[460px] xl:max-w-[500px]">
+            <div class="rounded-2xl border border-sky-100 bg-sky-50/70 px-3.5 py-2.5">
+              <div class="text-[11px] font-medium text-sky-700">知识目录</div>
+              <div class="mt-1 text-sm font-semibold text-slate-900">{{ effective.vault_path ? '已配置' : '未配置' }}</div>
             </div>
-            <div class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur-sm">
-              <div class="text-xs text-slate-300">索引目录</div>
-              <div class="mt-2 text-sm font-semibold text-white">{{ effective.index_dir ? '已配置' : '未配置' }}</div>
+            <div class="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-3.5 py-2.5">
+              <div class="text-[11px] font-medium text-emerald-700">索引目录</div>
+              <div class="mt-1 text-sm font-semibold text-slate-900">{{ effective.index_dir ? '已配置' : '未配置' }}</div>
             </div>
-            <div class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur-sm">
-              <div class="text-xs text-slate-300">Git 仓库</div>
-              <div class="mt-2 text-sm font-semibold text-white">{{ gitConfigured ? '已记录' : '未记录' }}</div>
+            <div class="rounded-2xl border border-violet-100 bg-violet-50/70 px-3.5 py-2.5">
+              <div class="text-[11px] font-medium text-violet-700">Git 仓库</div>
+              <div class="mt-1 text-sm font-semibold text-slate-900">{{ gitConfigured ? '已记录' : '未记录' }}</div>
             </div>
-            <div class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur-sm">
-              <div class="text-xs text-slate-300">默认分支</div>
-              <div class="mt-2 text-sm font-semibold text-white">{{ form.git_branch || 'main' }}</div>
+            <div class="rounded-2xl border border-slate-200 bg-slate-50/80 px-3.5 py-2.5">
+              <div class="text-[11px] font-medium text-slate-500">默认分支</div>
+              <div class="mt-1 text-sm font-semibold text-slate-900">{{ form.git_branch || 'main' }}</div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-      <div class="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_60px_-32px_rgba(15,23,42,0.25)]">
-        <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 px-6 py-5 sm:px-7">
+      <div class="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)]">
+        <div class="border-b border-slate-200 px-6 py-5 sm:px-7">
           <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h3 class="text-lg font-semibold text-white">运行时路径</h3>
-              <p class="mt-1 text-sm text-slate-300">这里的值会覆盖 `.env` 默认值，供聊天检索和重建索引直接使用。</p>
+              <h3 class="text-lg font-semibold text-slate-900">运行时路径</h3>
+              <p class="mt-1 text-sm text-slate-500">这里的值会覆盖 `.env` 默认值，供聊天检索和重建索引直接使用。</p>
             </div>
             <div class="flex flex-wrap gap-2">
-              <span class="rounded-full border border-white/10 px-3 py-1 text-xs font-medium" :class="vaultPathChanged ? 'bg-amber-400/15 text-amber-200' : 'bg-white/5 text-slate-300'">
+              <span class="rounded-full px-3 py-1 text-xs font-medium" :class="vaultPathChanged ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200' : 'bg-slate-100 text-slate-600'">
                 {{ vaultPathChanged ? '知识目录待保存' : '知识目录已生效' }}
               </span>
-              <span class="rounded-full border border-white/10 px-3 py-1 text-xs font-medium" :class="indexPathChanged ? 'bg-amber-400/15 text-amber-200' : 'bg-white/5 text-slate-300'">
+              <span class="rounded-full px-3 py-1 text-xs font-medium" :class="indexPathChanged ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200' : 'bg-slate-100 text-slate-600'">
                 {{ indexPathChanged ? '索引目录待保存' : '索引目录已生效' }}
               </span>
             </div>
@@ -253,14 +245,14 @@ onMounted(fetchConfig)
         </div>
       </div>
 
-      <div class="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_60px_-32px_rgba(16,185,129,0.22)]">
-        <div class="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 px-6 py-5 sm:px-7 text-white">
+      <div class="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)]">
+        <div class="border-b border-slate-200 px-6 py-5 sm:px-7">
           <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h3 class="text-lg font-semibold">Git 预留配置</h3>
-              <p class="mt-1 text-sm text-white/80">当前用于记录仓库来源和分支，后续做自动拉取时可直接沿用这里的配置。</p>
+              <h3 class="text-lg font-semibold text-slate-900">Git 预留配置</h3>
+              <p class="mt-1 text-sm text-slate-500">当前用于记录仓库来源和分支，后续做自动拉取时可直接沿用这里的配置。</p>
             </div>
-            <span class="rounded-full bg-white/15 px-3 py-1 text-xs font-medium">{{ gitConfigured ? '支持一键同步' : '待配置' }}</span>
+            <span class="rounded-full px-3 py-1 text-xs font-medium" :class="gitConfigured ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'">{{ gitConfigured ? '支持一键同步' : '待配置' }}</span>
           </div>
         </div>
         <div class="p-6 sm:p-7">
@@ -271,7 +263,7 @@ onMounted(fetchConfig)
             <el-form-item label="Git 分支">
               <el-input v-model="form.git_branch" placeholder="main" />
             </el-form-item>
-            <div class="rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-4 text-sm leading-6 text-cyan-700">
+            <div class="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-4 text-sm leading-6 text-sky-700">
               填写并保存 Git 仓库地址后，可点击下方“同步并重建”按钮执行 <code>git clone/pull</code> 并自动重建索引。服务器需已安装 Git 并配置好访问权限。
             </div>
           </el-form>
@@ -279,7 +271,7 @@ onMounted(fetchConfig)
       </div>
     </div>
 
-    <div class="rounded-[28px] border border-indigo-200 bg-white px-6 py-5 shadow-[0_18px_50px_-34px_rgba(99,102,241,0.28)]">
+    <div class="rounded-[28px] border border-slate-200 bg-white px-6 py-5 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)]">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div class="text-sm font-semibold text-slate-900">聊天知识库检索开关</div>
@@ -293,7 +285,7 @@ onMounted(fetchConfig)
       </div>
     </div>
 
-    <div class="flex flex-col gap-4 rounded-[28px] border border-slate-200 bg-white/95 px-6 py-5 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.35)] sm:flex-row sm:items-center sm:justify-between">
+    <div class="flex flex-col gap-4 rounded-[28px] border border-slate-200 bg-white px-6 py-5 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)] sm:flex-row sm:items-center sm:justify-between">
       <div>
         <div class="text-sm font-medium text-slate-800">保存后立即影响运行时配置</div>
         <div class="mt-1 text-xs text-slate-500">聊天检索和手动重建索引都会优先读取这里保存的知识源配置；如果还没保存，则继续使用 `.env` 默认值。</div>
@@ -305,76 +297,76 @@ onMounted(fetchConfig)
       </div>
     </div>
 
-    <div v-if="lastSyncResult" class="rounded-[24px] border border-blue-200 bg-blue-50 px-6 py-5 shadow-[0_18px_50px_-34px_rgba(59,130,246,0.3)] mb-6">
+    <div v-if="lastSyncResult" class="rounded-[24px] border border-slate-200 bg-white px-6 py-5 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)] mb-6">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <div class="text-sm font-semibold text-blue-800">Git 同步已完成</div>
-          <div class="mt-1 text-xs text-blue-700">以下是本次同步的 Git 详情。</div>
+          <div class="text-sm font-semibold text-slate-900">Git 同步已完成</div>
+          <div class="mt-1 text-xs text-slate-500">以下是本次同步的 Git 详情。</div>
         </div>
         <el-tag type="primary" size="large">{{ lastSyncResult.git.action === 'clone' ? '已克隆' : '已拉取' }}</el-tag>
       </div>
       <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <div class="rounded-2xl border border-blue-200 bg-white/80 px-4 py-3">
-          <div class="text-xs text-blue-600">操作</div>
-          <div class="mt-1 text-sm font-semibold text-blue-900">{{ lastSyncResult.git.action }}</div>
+        <div class="rounded-2xl border border-sky-100 bg-sky-50/70 px-4 py-3">
+          <div class="text-xs text-sky-600">操作</div>
+          <div class="mt-1 text-sm font-semibold text-slate-900">{{ lastSyncResult.git.action }}</div>
         </div>
-        <div class="rounded-2xl border border-blue-200 bg-white/80 px-4 py-3">
-          <div class="text-xs text-blue-600">分支</div>
-          <div class="mt-1 text-sm font-semibold text-blue-900">{{ lastSyncResult.git.branch }}</div>
+        <div class="rounded-2xl border border-sky-100 bg-sky-50/70 px-4 py-3">
+          <div class="text-xs text-sky-600">分支</div>
+          <div class="mt-1 text-sm font-semibold text-slate-900">{{ lastSyncResult.git.branch }}</div>
         </div>
-        <div class="rounded-2xl border border-blue-200 bg-white/80 px-4 py-3 md:col-span-2">
-          <div class="text-xs text-blue-600">仓库地址</div>
-          <div class="mt-1 break-all text-sm font-medium text-blue-900">{{ lastSyncResult.git.repo_url }}</div>
+        <div class="rounded-2xl border border-sky-100 bg-sky-50/70 px-4 py-3 md:col-span-2">
+          <div class="text-xs text-sky-600">仓库地址</div>
+          <div class="mt-1 break-all text-sm font-medium text-slate-900">{{ lastSyncResult.git.repo_url }}</div>
         </div>
       </div>
-      <div v-if="lastSyncResult.git.output" class="mt-3 rounded-2xl border border-blue-200 bg-white/80 px-4 py-3">
-        <div class="text-xs text-blue-600">Git 输出</div>
-        <pre class="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-all text-xs text-blue-800">{{ lastSyncResult.git.output }}</pre>
+      <div v-if="lastSyncResult.git.output" class="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <div class="text-xs text-slate-500">Git 输出</div>
+        <pre class="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-all text-xs text-slate-700">{{ lastSyncResult.git.output }}</pre>
       </div>
     </div>
 
-    <div v-if="lastReindexResult" class="rounded-[24px] border border-emerald-200 bg-emerald-50 px-6 py-5 shadow-[0_18px_50px_-34px_rgba(16,185,129,0.35)]">
+    <div v-if="lastReindexResult" class="rounded-[24px] border border-slate-200 bg-white px-6 py-5 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)]">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <div class="text-sm font-semibold text-emerald-800">最近一次知识索引重建已完成</div>
-          <div class="mt-1 text-xs text-emerald-700">重建使用的 Vault、索引目录和 Embedding 配置如下。</div>
+          <div class="text-sm font-semibold text-slate-900">最近一次知识索引重建已完成</div>
+          <div class="mt-1 text-xs text-slate-500">重建使用的 Vault、索引目录和 Embedding 配置如下。</div>
         </div>
         <el-tag type="success" size="large">索引完成</el-tag>
       </div>
       <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <div class="rounded-2xl border border-emerald-200 bg-white/80 px-4 py-3">
+        <div class="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
           <div class="text-xs text-emerald-600">扫描文件数</div>
-          <div class="mt-1 text-lg font-semibold text-emerald-900">{{ lastReindexResult.files }}</div>
+          <div class="mt-1 text-lg font-semibold text-slate-900">{{ lastReindexResult.files }}</div>
         </div>
-        <div class="rounded-2xl border border-emerald-200 bg-white/80 px-4 py-3">
+        <div class="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
           <div class="text-xs text-emerald-600">已发布文件</div>
-          <div class="mt-1 text-lg font-semibold text-emerald-900">{{ lastReindexResult.published_files }}</div>
+          <div class="mt-1 text-lg font-semibold text-slate-900">{{ lastReindexResult.published_files }}</div>
         </div>
-        <div class="rounded-2xl border border-emerald-200 bg-white/80 px-4 py-3">
-          <div class="text-xs text-emerald-600">跳过文件</div>
-          <div class="mt-1 text-lg font-semibold text-emerald-900">{{ lastReindexResult.skipped_files }}</div>
+        <div class="rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3">
+          <div class="text-xs text-amber-600">跳过文件</div>
+          <div class="mt-1 text-lg font-semibold text-slate-900">{{ lastReindexResult.skipped_files }}</div>
         </div>
-        <div class="rounded-2xl border border-emerald-200 bg-white/80 px-4 py-3">
-          <div class="text-xs text-emerald-600">索引分片数</div>
-          <div class="mt-1 text-lg font-semibold text-emerald-900">{{ lastReindexResult.chunks }}</div>
+        <div class="rounded-2xl border border-violet-100 bg-violet-50/70 px-4 py-3">
+          <div class="text-xs text-violet-600">索引分片数</div>
+          <div class="mt-1 text-lg font-semibold text-slate-900">{{ lastReindexResult.chunks }}</div>
         </div>
       </div>
       <div class="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <div class="rounded-2xl border border-emerald-200 bg-white/80 px-4 py-3">
-          <div class="text-xs text-emerald-600">Vault 路径</div>
-          <div class="mt-1 break-all text-sm font-medium text-emerald-900">{{ lastReindexResult.vault_path }}</div>
+        <div class="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+          <div class="text-xs text-slate-500">Vault 路径</div>
+          <div class="mt-1 break-all text-sm font-medium text-slate-900">{{ lastReindexResult.vault_path }}</div>
         </div>
-        <div class="rounded-2xl border border-emerald-200 bg-white/80 px-4 py-3">
-          <div class="text-xs text-emerald-600">索引目录</div>
-          <div class="mt-1 break-all text-sm font-medium text-emerald-900">{{ lastReindexResult.index_dir }}</div>
+        <div class="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+          <div class="text-xs text-slate-500">索引目录</div>
+          <div class="mt-1 break-all text-sm font-medium text-slate-900">{{ lastReindexResult.index_dir }}</div>
         </div>
-        <div class="rounded-2xl border border-emerald-200 bg-white/80 px-4 py-3">
-          <div class="text-xs text-emerald-600">Embedding 厂商</div>
-          <div class="mt-1 text-sm font-medium text-emerald-900">{{ lastReindexResult.embedding_provider || '--' }}</div>
+        <div class="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+          <div class="text-xs text-slate-500">Embedding 厂商</div>
+          <div class="mt-1 text-sm font-medium text-slate-900">{{ lastReindexResult.embedding_provider || '--' }}</div>
         </div>
-        <div class="rounded-2xl border border-emerald-200 bg-white/80 px-4 py-3">
-          <div class="text-xs text-emerald-600">Embedding 模型</div>
-          <div class="mt-1 break-all text-sm font-medium text-emerald-900">{{ lastReindexResult.embedding_model || '使用默认模型' }}</div>
+        <div class="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+          <div class="text-xs text-slate-500">Embedding 模型</div>
+          <div class="mt-1 break-all text-sm font-medium text-slate-900">{{ lastReindexResult.embedding_model || '使用默认模型' }}</div>
         </div>
       </div>
     </div>

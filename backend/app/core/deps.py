@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import decode_token
+from app.models.user import User
 from app.utils.response import fail
 
 
@@ -14,7 +15,7 @@ class BizException(Exception):
         self.message = message
 
 
-async def get_current_user_id(authorization: str = Header(None)) -> int:
+async def get_current_user_id(db: AsyncSession = Depends(get_db), authorization: str = Header(None)) -> int:
     """从 JWT 提取当前用户 ID"""
     if not authorization or not authorization.startswith("Bearer "):
         raise BizException(1002, "未登录")
@@ -25,7 +26,13 @@ async def get_current_user_id(authorization: str = Header(None)) -> int:
     user_id = payload.get("user_id")
     if not user_id:
         raise BizException(1002, "Token 无效")
-    return int(user_id)
+    user_id_int = int(user_id)
+    user = await db.get(User, user_id_int)
+    if not user or user.deleted_at is not None:
+        raise BizException(1002, "账号不存在或已注销")
+    if user.status == "banned":
+        raise BizException(1002, "账号已被封禁")
+    return user_id_int
 
 
 async def get_current_admin(authorization: str = Header(None)) -> dict:

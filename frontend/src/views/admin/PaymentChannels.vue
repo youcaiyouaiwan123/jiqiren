@@ -153,32 +153,32 @@ onMounted(fetchList)
 </script>
 
 <template>
-  <div class="space-y-6">
-    <section class="grid gap-4 md:grid-cols-3">
-      <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+  <div class="space-y-5">
+    <section class="grid gap-3 md:grid-cols-3">
+      <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-3.5 shadow-sm">
         <div class="text-sm text-slate-500">支付渠道</div>
-        <div class="mt-3 text-3xl font-semibold text-slate-900">{{ list.length }}</div>
+        <div class="mt-2 text-2xl font-semibold text-slate-900">{{ list.length }}</div>
       </div>
-      <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-3.5 shadow-sm">
         <div class="text-sm text-slate-500">已启用</div>
-        <div class="mt-3 text-3xl font-semibold text-emerald-600">{{ activeCount }}</div>
+        <div class="mt-2 text-2xl font-semibold text-emerald-600">{{ activeCount }}</div>
       </div>
-      <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-3.5 shadow-sm">
         <div class="text-sm text-slate-500">用户端展示</div>
-        <div class="mt-3 text-sm leading-6 text-slate-600">支持配置展示名、按钮文案、收款码和外部支付链接。</div>
+        <div class="mt-2 text-xs leading-5 text-slate-600">支持配置展示名、按钮文案、收款码和外部支付链接。</div>
       </div>
     </section>
 
-    <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <section class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 class="text-lg font-semibold text-slate-900">支付渠道配置</h2>
-          <p class="mt-1 text-sm text-slate-500">保留现有商户配置，同时补充用户端可见的渠道说明和跳转配置。</p>
+          <p class="mt-1 text-xs text-slate-500">保留现有商户配置，同时补充用户端可见的渠道说明和跳转配置。</p>
         </div>
         <el-button type="primary" @click="openCreate">新增渠道</el-button>
       </div>
 
-      <el-table :data="list" v-loading="loading" stripe border class="mt-6" style="width: 100%">
+      <el-table :data="list" v-loading="loading" stripe border class="mt-4" style="width: 100%">
         <el-table-column prop="channel" label="渠道" width="100" />
         <el-table-column label="展示信息" min-width="200">
           <template #default="{ row }">
@@ -202,75 +202,75 @@ onMounted(fetchList)
       </el-table>
     </section>
 
-    <el-dialog v-model="dialogVisible" :title="form.id ? '编辑支付渠道' : '新增支付渠道'" width="1040px" destroy-on-close>
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_360px]">
-        <div class="space-y-6">
-          <section class="rounded-3xl border border-slate-200 bg-slate-50/70 p-5">
-            <div class="mb-4 text-sm font-semibold text-slate-700">商户配置</div>
-            <el-form label-position="top" class="grid gap-4 md:grid-cols-2">
-              <el-form-item label="支付渠道" required>
+    <el-dialog v-model="dialogVisible" :title="form.id ? '编辑支付渠道' : '新增支付渠道'" width="960px" top="6vh" destroy-on-close>
+      <div class="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_300px]">
+        <div class="space-y-4">
+          <section class="rounded-[24px] border border-slate-200 bg-slate-50/70 p-3.5">
+            <div class="mb-2.5 text-sm font-semibold text-slate-700">商户配置</div>
+            <el-form label-position="top" class="grid gap-2.5 md:grid-cols-2">
+              <el-form-item label="支付渠道" required class="!mb-0">
                 <el-select v-model="form.channel">
                   <el-option label="微信支付" value="wechat" />
                   <el-option label="支付宝" value="alipay" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="商户号">
+              <el-form-item label="商户号" class="!mb-0">
                 <el-input v-model="form.merchant_id" placeholder="商户号 / 渠道账号" />
               </el-form-item>
-              <el-form-item label="API Key">
+              <el-form-item label="API Key" class="!mb-0">
                 <el-input v-model="form.api_key" type="password" show-password placeholder="留空则不覆盖已有值" />
               </el-form-item>
-              <el-form-item label="API Secret">
+              <el-form-item label="API Secret" class="!mb-0">
                 <el-input v-model="form.api_secret" type="password" show-password placeholder="留空则不覆盖已有值" />
               </el-form-item>
-              <el-form-item label="回调地址" class="md:col-span-2">
+              <el-form-item label="回调地址" class="md:col-span-2 !mb-0">
                 <el-input v-model="form.notify_url" placeholder="支付平台回调地址" />
               </el-form-item>
-              <el-form-item label="启用状态">
+              <el-form-item label="启用状态" class="!mb-0">
                 <el-switch v-model="form.is_active" />
               </el-form-item>
             </el-form>
           </section>
 
-          <section class="rounded-3xl border border-slate-200 bg-white p-5">
-            <div class="mb-4 text-sm font-semibold text-slate-700">用户端展示配置</div>
-            <el-form label-position="top" class="grid gap-4 md:grid-cols-2">
-              <el-form-item label="展示名称">
+          <section class="rounded-[24px] border border-slate-200 bg-white p-3">
+            <div class="mb-2 text-sm font-semibold text-slate-700">用户端展示配置</div>
+            <el-form label-position="top" class="grid gap-2 md:grid-cols-2">
+              <el-form-item label="展示名称" class="!mb-0">
                 <el-input v-model="form.display_name" placeholder="例如 微信支付 / 支付宝" />
               </el-form-item>
-              <el-form-item label="按钮文案">
+              <el-form-item label="按钮文案" class="!mb-0">
                 <el-input v-model="form.button_label" placeholder="例如 前往支付" />
               </el-form-item>
-              <el-form-item label="展示说明" class="md:col-span-2">
+              <el-form-item label="展示说明" class="md:col-span-2 !mb-0">
                 <el-input v-model="form.description" placeholder="显示在订阅弹窗里的渠道说明" />
               </el-form-item>
-              <el-form-item label="外部支付链接" class="md:col-span-2">
+              <el-form-item label="外部支付链接" class="md:col-span-2 !mb-0">
                 <el-input v-model="form.checkout_url" placeholder="已有计费页面链接，可选" />
               </el-form-item>
-              <el-form-item label="收款码图片链接" class="md:col-span-2">
+              <el-form-item label="收款码图片链接" class="md:col-span-2 !mb-0">
                 <el-input v-model="form.qrcode_url" placeholder="未配置外部链接时可展示收款码" />
               </el-form-item>
-              <el-form-item label="支付提示" class="md:col-span-2">
-                <el-input v-model="form.pay_tips" type="textarea" :rows="4" placeholder="例如：支付完成后返回当前页刷新状态" />
+              <el-form-item label="支付提示" class="md:col-span-2 !mb-0">
+                <el-input v-model="form.pay_tips" type="textarea" :rows="1" placeholder="例如：支付完成后返回当前页刷新状态" />
               </el-form-item>
             </el-form>
           </section>
         </div>
 
-        <aside class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+        <aside class="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
           <div class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">{{ channelLabel }}</div>
-          <h3 class="mt-3 text-2xl font-semibold text-slate-900">{{ previewTitle }}</h3>
-          <p class="mt-4 text-sm leading-6 text-slate-500">{{ form.description || '在订阅弹窗中引导用户完成支付。' }}</p>
+          <h3 class="mt-2 text-xl font-semibold text-slate-900">{{ previewTitle }}</h3>
+          <p class="mt-3 text-xs leading-5 text-slate-500">{{ form.description || '在订阅弹窗中引导用户完成支付。' }}</p>
 
-          <div class="mt-6 rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center">
-            <img v-if="form.qrcode_url" :src="form.qrcode_url" alt="支付二维码" class="mx-auto h-48 w-48 rounded-2xl object-cover" />
-            <div v-else class="py-12 text-sm text-slate-400">未配置收款码预览</div>
+          <div class="mt-4 rounded-[24px] border border-dashed border-slate-300 bg-slate-50 p-3 text-center">
+            <img v-if="form.qrcode_url" :src="form.qrcode_url" alt="支付二维码" class="mx-auto h-40 w-40 rounded-2xl object-cover" />
+            <div v-else class="py-10 text-xs text-slate-400">未配置收款码预览</div>
           </div>
 
-          <div class="mt-5 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white">
+          <div class="mt-4 rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white">
             {{ form.button_label || '前往支付' }}
           </div>
-          <div class="mt-4 text-xs leading-6 text-slate-500">{{ form.pay_tips || '支付完成后，用户端会按当前计费链路继续处理订阅生效。' }}</div>
+          <div class="mt-3 text-xs leading-5 text-slate-500">{{ form.pay_tips || '支付完成后，用户端会按当前计费链路继续处理订阅生效。' }}</div>
         </aside>
       </div>
 

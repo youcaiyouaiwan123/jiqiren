@@ -56,6 +56,19 @@ const configMeta: Record<string, ConfigMeta> = {
   knowledge_embedding_model: { label: 'Embedding 模型', type: 'input' },
 }
 
+const configOrder = [
+  'system_prompt',
+  'temperature',
+  'max_tokens',
+  'faq_enabled',
+  'doc_recommend',
+  'knowledge_enabled',
+  'knowledge_top_k',
+  'knowledge_min_score',
+  'knowledge_embedding_provider',
+  'knowledge_embedding_model',
+]
+
 async function fetchConfigs() {
   try {
     const res = await api.get('/admin/ai/config')
@@ -77,17 +90,25 @@ onMounted(fetchConfigs)
 </script>
 
 <template>
-  <div class="space-y-4 max-w-2xl">
-    <div v-for="key in Object.keys(configMeta)" :key="key" class="bg-white rounded-xl p-5 shadow-sm border">
-      <div class="flex items-center justify-between mb-2">
-        <label class="text-sm font-semibold text-gray-700">{{ configMeta[key]?.label }}</label>
-        <el-button size="small" type="primary" @click="save(key)">保存</el-button>
+  <div class="mx-auto max-w-6xl space-y-5 pb-5">
+    <div class="rounded-[28px] border border-slate-200 bg-white px-5 py-4 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)] sm:px-6">
+      <h2 class="text-xl font-semibold tracking-tight text-slate-900">AI 配置</h2>
+    </div>
+
+    <div class="grid grid-cols-1 gap-3.5 xl:grid-cols-2">
+      <div v-for="key in configOrder" :key="key" class="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm" :class="key === 'system_prompt' ? 'xl:col-span-2' : ''">
+        <div class="flex items-center justify-between gap-2.5">
+          <label class="text-sm font-semibold text-slate-700">{{ configMeta[key]?.label }}</label>
+          <el-button size="small" type="primary" plain @click="save(key)">保存</el-button>
+        </div>
+        <div class="mt-2.5">
+          <el-input v-if="configMeta[key]?.type === 'textarea'" v-model="form[key]" type="textarea" :rows="3" resize="vertical" />
+          <el-select v-else-if="configMeta[key]?.type === 'select'" v-model="form[key]" class="w-full">
+            <el-option v-for="option in configMeta[key]?.options || []" :key="option.value" :label="option.label" :value="option.value" />
+          </el-select>
+          <el-input v-else v-model="form[key]" />
+        </div>
       </div>
-      <el-input v-if="configMeta[key]?.type === 'textarea'" v-model="form[key]" type="textarea" :rows="4" />
-      <el-select v-else-if="configMeta[key]?.type === 'select'" v-model="form[key]" class="w-full">
-        <el-option v-for="option in configMeta[key]?.options || []" :key="option.value" :label="option.label" :value="option.value" />
-      </el-select>
-      <el-input v-else v-model="form[key]" />
     </div>
   </div>
 </template>

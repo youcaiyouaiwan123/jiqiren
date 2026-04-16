@@ -94,6 +94,10 @@ const selectedChannel = computed<PaymentChannelOption | null>(() => {
   return (catalog.value?.channels || []).find(item => item.id === selectedChannelId.value) || null
 })
 
+const hasAvailableChannels = computed(() => (catalog.value?.channels || []).length > 0)
+
+const canCheckout = computed(() => Boolean(selectedPlan.value && selectedChannel.value))
+
 const hasPendingOrders = computed(() => orders.value.some(item => item.status === 'pending'))
 
 const activeOrder = computed<SubscribeOrder | null>(() => {
@@ -345,94 +349,47 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <el-dialog v-model="visible" width="1120px" destroy-on-close align-center>
+  <el-dialog v-model="visible" width="1060px" top="4vh" destroy-on-close>
     <template #header>
       <div>
-        <div class="text-xs font-semibold uppercase tracking-[0.32em] text-sky-500">Subscription</div>
-        <div class="mt-2 text-2xl font-semibold text-slate-900">升级订阅，继续使用智能客服</div>
-        <div class="mt-2 text-sm text-slate-500">{{ currentPlanLabel }}</div>
+        <div class="text-xs font-semibold uppercase tracking-[0.28em] text-sky-600">Subscription</div>
+        <div class="mt-1.5 text-xl font-semibold text-slate-900 sm:text-2xl">升级订阅，继续使用智能客服</div>
+        <div class="mt-1.5 text-xs text-slate-500 sm:text-sm">{{ currentPlanLabel }}</div>
       </div>
     </template>
 
-    <div class="max-h-[76vh] space-y-6 overflow-y-auto pr-1">
-      <section class="relative overflow-hidden rounded-[32px] bg-slate-950 px-7 py-7 text-white">
-        <div class="absolute inset-x-0 top-0 h-40 bg-gradient-to-r from-sky-500/25 via-cyan-300/12 to-amber-300/12" />
-        <div class="absolute right-0 top-0 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
-        <div class="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_240px]">
-          <div>
-            <div class="inline-flex items-center rounded-full border border-white/15 bg-white/8 px-3 py-1 text-xs text-slate-200">
-              {{ currentStateLabel }}
-            </div>
-            <h2 class="mt-4 text-3xl font-semibold leading-tight">免费次数用完后，用户可以无缝转入订阅支付流程。</h2>
-            <p class="mt-4 max-w-3xl text-sm leading-7 text-slate-300">
-              套餐、支付渠道、按钮文案、收款码和外部跳转链接都来自管理端配置。用户端下单后，管理端可直接审核订单并开通订阅。
-            </p>
-            <div class="mt-5 flex flex-wrap gap-3 text-sm text-slate-200">
-              <span class="rounded-full border border-white/15 px-3 py-1">先下单，再支付</span>
-              <span class="rounded-full border border-white/15 px-3 py-1">支持二维码或外部支付页</span>
-              <span class="rounded-full border border-white/15 px-3 py-1">管理员审核后即时生效</span>
-            </div>
-          </div>
-
-          <div class="rounded-[28px] border border-white/12 bg-white/8 p-5">
-            <div class="text-sm text-slate-300">当前状态</div>
-            <div class="mt-3 text-3xl font-semibold">
-              {{ catalog?.current?.subscribe_plan === 'free' ? (catalog?.current?.free_chats_left ?? auth.user?.free_chats_left ?? 0) : 'Active' }}
-            </div>
-            <div class="mt-2 text-sm text-slate-300">
-              {{ catalog?.current?.subscribe_plan === 'free' ? '剩余免费对话次数' : '订阅权益已开启' }}
-            </div>
-            <div class="mt-6 text-xs uppercase tracking-[0.28em] text-slate-400">Billing</div>
-            <div v-if="availableCycles.length > 1" class="mt-3 inline-flex rounded-full bg-white/10 p-1">
-              <button
-                v-for="cycle in availableCycles"
-                :key="cycle.value"
-                type="button"
-                class="rounded-full px-4 py-2 text-sm transition"
-                :class="billingCycle === cycle.value ? 'bg-white text-slate-950' : 'text-slate-300'"
-                @click="billingCycle = cycle.value"
-              >
-                {{ cycle.label }}
-              </button>
-            </div>
-            <div v-else class="mt-3 text-sm text-slate-300">
-              {{ availableCycles[0]?.label || '按已配置套餐展示' }}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_360px]">
-        <div class="space-y-5">
-          <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-            <div class="flex items-center justify-between gap-4">
+    <div class="max-h-[78vh] space-y-4 overflow-y-auto pr-1">
+      <section class="grid items-start gap-4 lg:grid-cols-[minmax(0,1.08fr)_340px]">
+        <div class="space-y-4">
+          <section class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div class="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">Plans</div>
-                <h3 class="mt-2 text-xl font-semibold text-slate-900">选择一个订阅套餐</h3>
+                <h3 class="mt-1.5 text-lg font-semibold text-slate-900">选择一个订阅套餐</h3>
               </div>
               <el-button text type="primary" @click="refreshStatus">刷新状态</el-button>
             </div>
 
-            <div v-if="catalogLoading" class="mt-5 rounded-[24px] border border-slate-200 bg-slate-50 px-6 py-14 text-center text-sm text-slate-500">
+            <div v-if="catalogLoading" class="mt-4 rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
               正在加载订阅配置...
             </div>
 
-            <div v-else-if="!visiblePlans.length" class="mt-5 rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-6 py-14 text-center text-sm text-slate-500">
+            <div v-else-if="!visiblePlans.length" class="mt-4 rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
               管理端还没有上架可订阅套餐。
             </div>
 
-            <div v-else class="mt-5 grid gap-4 xl:grid-cols-2">
+            <div v-else class="mt-4 grid gap-3 xl:grid-cols-2">
               <button
                 v-for="plan in visiblePlans"
                 :key="plan.id"
                 type="button"
-                class="relative overflow-hidden rounded-[28px] border p-6 text-left transition"
-                :class="selectedPlanId === plan.id ? 'border-sky-400 bg-sky-50 shadow-[0_24px_70px_-42px_rgba(2,132,199,0.5)]' : 'border-slate-200 bg-white hover:border-slate-300'"
+                class="relative flex h-full flex-col overflow-hidden rounded-[24px] border p-4 text-left transition"
+                :class="selectedPlanId === plan.id ? 'border-sky-300 bg-sky-50 shadow-[0_20px_60px_-42px_rgba(2,132,199,0.35)]' : 'border-slate-200 bg-white hover:border-slate-300'"
                 @click="selectedPlanId = plan.id"
               >
                 <div
                   v-if="plan.display_config?.is_recommended || plan.display_config?.badge_text"
-                  class="absolute right-4 top-4 rounded-full px-3 py-1 text-xs font-semibold"
+                  class="absolute right-3 top-3 rounded-full px-2.5 py-1 text-xs font-semibold"
                   :class="plan.display_config?.is_recommended ? 'bg-slate-950 text-white' : 'bg-amber-100 text-amber-900'"
                 >
                   {{ plan.display_config?.badge_text || '推荐' }}
@@ -441,24 +398,24 @@ onBeforeUnmount(() => {
                 <div class="text-xs font-semibold uppercase tracking-[0.24em]" :class="selectedPlanId === plan.id ? 'text-sky-600' : 'text-slate-400'">
                   {{ planTypeLabel(plan.type) }}
                 </div>
-                <h4 class="mt-3 text-2xl font-semibold text-slate-900">{{ plan.name }}</h4>
-                <p class="mt-3 text-sm leading-6 text-slate-600">
+                <h4 class="mt-2 text-xl font-semibold text-slate-900">{{ plan.name }}</h4>
+                <p class="mt-2 text-sm leading-5 text-slate-600 line-clamp-2">
                   {{ plan.display_config?.summary || plan.description || '适合需要持续使用智能客服与高频咨询的用户。' }}
                 </p>
 
-                <div class="mt-5 flex items-end gap-2">
-                  <span class="text-4xl font-semibold text-slate-900">¥{{ formatMoney(plan.price) }}</span>
-                  <span class="pb-1 text-sm text-slate-500">/ {{ planTypeLabel(plan.type) }}</span>
+                <div class="mt-4 flex items-end gap-2">
+                  <span class="text-3xl font-semibold text-slate-900">¥{{ formatMoney(plan.price) }}</span>
+                  <span class="pb-0.5 text-sm text-slate-500">/ {{ planTypeLabel(plan.type) }}</span>
                 </div>
-                <div v-if="plan.display_config?.original_price" class="mt-2 text-sm text-slate-400 line-through">
+                <div v-if="plan.display_config?.original_price" class="mt-1.5 text-xs text-slate-400 line-through">
                   原价 ¥{{ plan.display_config?.original_price }}
                 </div>
 
-                <div class="mt-5 space-y-3">
+                <div class="mt-4 space-y-2">
                   <div
                     v-for="point in plan.display_config?.feature_points?.length ? plan.display_config?.feature_points : ['继续使用对话能力', '适合高频咨询场景']"
                     :key="point"
-                    class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
+                    class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700"
                   >
                     {{ point }}
                   </div>
@@ -467,29 +424,29 @@ onBeforeUnmount(() => {
             </div>
           </section>
 
-          <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-            <div class="flex items-center justify-between gap-4">
+          <section class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div class="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">Orders</div>
-                <h3 class="mt-2 text-xl font-semibold text-slate-900">订阅订单进度</h3>
+                <h3 class="mt-1.5 text-lg font-semibold text-slate-900">订阅订单进度</h3>
               </div>
-              <div class="text-sm text-slate-500">支付完成后请等待管理员审核</div>
+              <div class="text-xs text-slate-500 sm:text-sm">支付完成后请等待管理员审核</div>
             </div>
 
-            <div v-if="orderLoading" class="mt-5 rounded-[24px] border border-slate-200 bg-slate-50 px-6 py-12 text-center text-sm text-slate-500">
+            <div v-if="orderLoading" class="mt-4 rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
               正在加载订单...
             </div>
 
-            <div v-else-if="!orders.length" class="mt-5 rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center text-sm text-slate-500">
+            <div v-else-if="!orders.length" class="mt-4 rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
               还没有创建过订阅订单。
             </div>
 
-            <div v-else class="mt-5 space-y-3">
+            <div v-else class="mt-4 space-y-2.5">
               <button
                 v-for="order in orders"
                 :key="order.id"
                 type="button"
-                class="flex w-full items-start justify-between gap-4 rounded-[22px] border px-5 py-4 text-left transition"
+                class="flex w-full items-start justify-between gap-3 rounded-[20px] border px-4 py-3.5 text-left transition"
                 :class="activeOrder?.id === order.id ? 'border-sky-300 bg-sky-50' : 'border-slate-200 bg-white hover:border-slate-300'"
                 @click="activeOrderId = order.id"
               >
@@ -498,14 +455,14 @@ onBeforeUnmount(() => {
                     <div class="font-medium text-slate-900">{{ resolveOrderPlanName(order) }}</div>
                     <el-tag :type="statusTagType(order.status)" size="small">{{ statusLabel(order.status) }}</el-tag>
                   </div>
-                  <div class="mt-2 text-sm text-slate-500">订单号 {{ order.order_no || order.id }}</div>
+                  <div class="mt-1.5 text-sm text-slate-500">订单号 {{ order.order_no || order.id }}</div>
                   <div class="mt-1 text-xs text-slate-400">
                     {{ planTypeLabel(order.plan) }} · {{ order.channel || 'channel' }} · {{ formatDateTime(order.created_at) }}
                   </div>
-                  <div v-if="order.remark" class="mt-2 text-xs text-slate-500">{{ order.remark }}</div>
+                  <div v-if="order.remark" class="mt-1.5 text-xs text-slate-500">{{ order.remark }}</div>
                 </div>
                 <div class="shrink-0 text-right">
-                  <div class="text-lg font-semibold text-slate-900">¥{{ formatMoney(order.amount) }}</div>
+                  <div class="text-base font-semibold text-slate-900">¥{{ formatMoney(order.amount) }}</div>
                   <div class="mt-1 text-xs text-slate-400">{{ order.paid_at ? formatDateTime(order.paid_at) : '待支付完成' }}</div>
                 </div>
               </button>
@@ -513,25 +470,25 @@ onBeforeUnmount(() => {
           </section>
         </div>
 
-        <aside class="space-y-5">
-          <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+        <aside class="space-y-4">
+          <section class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
             <div class="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">Checkout</div>
-            <h3 class="mt-2 text-2xl font-semibold text-slate-900">{{ selectedPlan?.name || '选择套餐后继续' }}</h3>
-            <div v-if="selectedPlan" class="mt-4 flex items-end gap-2">
-              <span class="text-4xl font-semibold text-slate-900">¥{{ formatMoney(selectedPlan.price) }}</span>
-              <span class="pb-1 text-sm text-slate-500">/ {{ planTypeLabel(selectedPlan.type) }}</span>
+            <h3 class="mt-1.5 text-xl font-semibold text-slate-900">{{ selectedPlan?.name || '选择套餐后继续' }}</h3>
+            <div v-if="selectedPlan" class="mt-3 flex items-end gap-2">
+              <span class="text-3xl font-semibold text-slate-900">¥{{ formatMoney(selectedPlan.price) }}</span>
+              <span class="pb-0.5 text-sm text-slate-500">/ {{ planTypeLabel(selectedPlan.type) }}</span>
             </div>
-            <p class="mt-4 text-sm leading-6 text-slate-600">
+            <p class="mt-3 text-sm leading-5 text-slate-600 line-clamp-2">
               {{ selectedPlan?.display_config?.summary || selectedPlan?.description || '选择支付方式后即可创建订单。' }}
             </p>
 
-            <div class="mt-6 space-y-3">
+            <div class="mt-4 space-y-2.5">
               <div class="text-sm font-semibold text-slate-900">支付方式</div>
               <button
                 v-for="channel in catalog?.channels || []"
                 :key="channel.id"
                 type="button"
-                class="w-full rounded-[22px] border px-4 py-4 text-left transition"
+                class="w-full rounded-[20px] border px-4 py-3.5 text-left transition"
                 :class="selectedChannelId === channel.id ? 'border-sky-300 bg-sky-50' : 'border-slate-200 bg-slate-50 hover:border-slate-300'"
                 @click="selectedChannelId = channel.id"
               >
@@ -546,30 +503,30 @@ onBeforeUnmount(() => {
                 </div>
               </button>
 
-              <div v-if="catalog && !catalog.channels.length" class="rounded-[22px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+              <div v-if="catalog && !catalog.channels.length" class="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-4 py-7 text-center text-sm text-slate-500">
                 管理端还没有启用支付渠道。
               </div>
             </div>
 
-            <div class="mt-6 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+            <div class="mt-4 rounded-[24px] border border-slate-200 bg-slate-50 p-3.5">
               <div class="text-sm font-semibold text-slate-900">支付说明</div>
-              <div class="mt-2 text-xs leading-6 text-slate-500">
+              <div class="mt-1.5 text-xs leading-5 text-slate-500">
                 {{ selectedChannel?.pay_tips || '创建订单后可跳转支付页，或按二维码完成支付。支付完成后由管理员审核开通订阅。' }}
               </div>
               <img
                 v-if="selectedChannel?.qrcode_url"
                 :src="selectedChannel.qrcode_url"
                 alt="payment-qrcode"
-                class="mx-auto mt-4 h-44 w-44 rounded-2xl border border-slate-200 object-cover"
+                class="mx-auto mt-3 h-36 w-36 rounded-2xl border border-slate-200 object-cover"
               />
             </div>
 
-            <div v-if="selectedPlanFeatures.length" class="mt-6 space-y-2">
+            <div v-if="selectedPlanFeatures.length" class="mt-4 space-y-1.5">
               <div class="text-sm font-semibold text-slate-900">本次开通包含</div>
               <div
                 v-for="point in selectedPlanFeatures"
                 :key="point"
-                class="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                class="rounded-2xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-700"
               >
                 {{ point }}
               </div>
@@ -577,36 +534,40 @@ onBeforeUnmount(() => {
 
             <el-button
               type="primary"
-              class="mt-6 !h-12 w-full"
+              class="mt-4 !h-11 w-full"
               :loading="checkoutLoading"
-              :disabled="!selectedPlan || !selectedChannel"
+              :disabled="!canCheckout"
               @click="checkout"
             >
-              {{ selectedPlan?.display_config?.button_text || selectedChannel?.button_label || '创建订单并去支付' }}
+              {{ !hasAvailableChannels ? '暂无可用支付渠道' : selectedPlan?.display_config?.button_text || selectedChannel?.button_label || '创建订单并去支付' }}
             </el-button>
 
-            <el-button v-if="activeCheckoutUrl" plain class="mt-3 !h-11 w-full" @click="openCheckoutPage">
+            <div v-if="!hasAvailableChannels" class="mt-2 text-xs text-slate-400">
+              请先在管理端启用至少一种支付渠道。
+            </div>
+
+            <el-button v-if="activeCheckoutUrl" plain class="mt-2.5 !h-10 w-full" @click="openCheckoutPage">
               再次打开支付页
             </el-button>
 
-            <div v-if="activeOrder" class="mt-5 rounded-[24px] bg-slate-950 px-5 py-4 text-white">
+            <div v-if="activeOrder" class="mt-4 rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900">
               <div class="flex items-center justify-between gap-3">
                 <div class="text-sm font-medium">当前订单</div>
                 <el-tag :type="statusTagType(activeOrder.status)" size="small">{{ statusLabel(activeOrder.status) }}</el-tag>
               </div>
-              <div class="mt-3 text-lg font-semibold">{{ activeOrder.order_no || activeOrder.id }}</div>
-              <div class="mt-2 text-sm text-slate-300">
+              <div class="mt-2 text-base font-semibold">{{ activeOrder.order_no || activeOrder.id }}</div>
+              <div class="mt-1.5 text-sm text-slate-600">
                 {{ resolveOrderPlanName(activeOrder) }} · ¥{{ formatMoney(activeOrder.amount) }}
               </div>
-              <div class="mt-2 text-xs text-slate-400">{{ formatDateTime(activeOrder.created_at) }}</div>
+              <div class="mt-1.5 text-xs text-slate-400">{{ formatDateTime(activeOrder.created_at) }}</div>
             </div>
           </section>
 
-          <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+          <section class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
             <div class="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">Redeem</div>
-            <h3 class="mt-2 text-xl font-semibold text-slate-900">兑换码</h3>
-            <p class="mt-2 text-sm leading-6 text-slate-500">如果你已有兑换码，也可以直接在这里兑换，不走支付流程。</p>
-            <div class="mt-4 space-y-3">
+            <h3 class="mt-1.5 text-lg font-semibold text-slate-900">兑换码</h3>
+            <p class="mt-1.5 text-sm leading-5 text-slate-500">如果你已有兑换码，也可以直接在这里兑换，不走支付流程。</p>
+            <div class="mt-3 space-y-2.5">
               <el-input v-model="redeemCode" placeholder="输入兑换码" @keyup.enter="redeem" />
               <el-button type="primary" plain class="w-full" :loading="redeeming" @click="redeem">立即兑换</el-button>
             </div>

@@ -174,32 +174,32 @@ onMounted(fetchList)
 </script>
 
 <template>
-  <div class="space-y-6">
-    <section class="grid gap-4 md:grid-cols-3">
-      <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+  <div class="space-y-5">
+    <section class="grid gap-3 md:grid-cols-3">
+      <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-3.5 shadow-sm">
         <div class="text-sm text-slate-500">套餐总数</div>
-        <div class="mt-3 text-3xl font-semibold text-slate-900">{{ list.length }}</div>
+        <div class="mt-2 text-2xl font-semibold text-slate-900">{{ list.length }}</div>
       </div>
-      <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-3.5 shadow-sm">
         <div class="text-sm text-slate-500">已上架</div>
-        <div class="mt-3 text-3xl font-semibold text-emerald-600">{{ activeCount }}</div>
+        <div class="mt-2 text-2xl font-semibold text-emerald-600">{{ activeCount }}</div>
       </div>
-      <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-3.5 shadow-sm">
         <div class="text-sm text-slate-500">推荐套餐</div>
-        <div class="mt-3 text-3xl font-semibold text-sky-600">{{ recommendedCount }}</div>
+        <div class="mt-2 text-2xl font-semibold text-sky-600">{{ recommendedCount }}</div>
       </div>
     </section>
 
-    <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <section class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 class="text-lg font-semibold text-slate-900">订阅套餐配置</h2>
-          <p class="mt-1 text-sm text-slate-500">配置用户端弹窗里的价格卡片、卖点文案、推荐标签和跳转链接。</p>
+          <p class="mt-1 text-xs text-slate-500">配置用户端弹窗里的价格卡片、卖点文案、推荐标签和跳转链接。</p>
         </div>
         <el-button type="primary" @click="openCreate">新增套餐</el-button>
       </div>
 
-      <el-table :data="list" v-loading="loading" stripe border class="mt-6" style="width: 100%">
+      <el-table :data="list" v-loading="loading" stripe border class="mt-4" style="width: 100%">
         <el-table-column prop="name" label="套餐" min-width="160">
           <template #default="{ row }">
             <div class="font-medium text-slate-900">{{ row.name }}</div>
@@ -232,69 +232,69 @@ onMounted(fetchList)
       </el-table>
     </section>
 
-    <el-dialog v-model="dialogVisible" :title="form.id ? '编辑套餐' : '新增套餐'" width="1080px" destroy-on-close>
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_360px]">
-        <div class="space-y-6">
-          <section class="rounded-3xl border border-slate-200 bg-slate-50/70 p-5">
-            <div class="mb-4 text-sm font-semibold text-slate-700">基础信息</div>
-            <el-form label-position="top" class="grid gap-4 md:grid-cols-2">
-              <el-form-item label="套餐名称" required>
+    <el-dialog v-model="dialogVisible" :title="form.id ? '编辑套餐' : '新增套餐'" width="940px" top="5vh" destroy-on-close>
+      <div class="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_300px]">
+        <div class="space-y-4">
+          <section class="rounded-[24px] border border-slate-200 bg-slate-50/70 p-3">
+            <div class="mb-2 text-sm font-semibold text-slate-700">基础信息</div>
+            <el-form label-position="top" class="grid gap-2 md:grid-cols-2">
+              <el-form-item label="套餐名称" required class="!mb-0">
                 <el-input v-model="form.name" placeholder="例如 Pro" />
               </el-form-item>
-              <el-form-item label="计费周期" required>
+              <el-form-item label="计费周期" required class="!mb-0">
                 <el-select v-model="form.type">
                   <el-option label="月付" value="monthly" />
                   <el-option label="年付" value="yearly" />
                   <el-option label="自定义" value="custom" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="售价" required>
+              <el-form-item label="售价" required class="!mb-0">
                 <el-input-number v-model="form.price" :min="0" :precision="2" class="w-full" />
               </el-form-item>
-              <el-form-item label="时长（天）" required>
+              <el-form-item label="时长（天）" required class="!mb-0">
                 <el-input-number v-model="form.duration_days" :min="1" class="w-full" />
               </el-form-item>
-              <el-form-item label="聊天限额">
+              <el-form-item label="聊天限额" class="!mb-0">
                 <el-input-number v-model="form.chat_limit" class="w-full" />
               </el-form-item>
-              <el-form-item label="排序">
+              <el-form-item label="排序" class="!mb-0">
                 <el-input-number v-model="form.sort_order" class="w-full" />
               </el-form-item>
-              <el-form-item label="上架状态">
+              <el-form-item label="上架状态" class="!mb-0">
                 <el-switch v-model="form.is_active" />
               </el-form-item>
-              <el-form-item label="推荐套餐">
+              <el-form-item label="推荐套餐" class="!mb-0">
                 <el-switch v-model="form.is_recommended" />
               </el-form-item>
-              <el-form-item label="后台描述" class="md:col-span-2">
-                <el-input v-model="form.description" type="textarea" :rows="3" placeholder="后台备注或简述" />
+              <el-form-item label="后台描述" class="md:col-span-2 !mb-0">
+                <el-input v-model="form.description" type="textarea" :rows="1" placeholder="后台备注或简述" />
               </el-form-item>
             </el-form>
           </section>
 
-          <section class="rounded-3xl border border-slate-200 bg-white p-5">
-            <div class="mb-4 text-sm font-semibold text-slate-700">用户端展示配置</div>
-            <el-form label-position="top" class="grid gap-4 md:grid-cols-2">
-              <el-form-item label="角标文案">
+          <section class="rounded-[24px] border border-slate-200 bg-white p-3">
+            <div class="mb-2 text-sm font-semibold text-slate-700">用户端展示配置</div>
+            <el-form label-position="top" class="grid gap-2 md:grid-cols-2">
+              <el-form-item label="角标文案" class="!mb-0">
                 <el-input v-model="form.badge_text" placeholder="例如 最受欢迎" />
               </el-form-item>
-              <el-form-item label="划线原价">
+              <el-form-item label="划线原价" class="!mb-0">
                 <el-input v-model="form.original_price" placeholder="例如 99" />
               </el-form-item>
-              <el-form-item label="摘要文案" class="md:col-span-2">
+              <el-form-item label="摘要文案" class="md:col-span-2 !mb-0">
                 <el-input v-model="form.summary" placeholder="一句话描述套餐定位" />
               </el-form-item>
-              <el-form-item label="按钮文案">
+              <el-form-item label="按钮文案" class="!mb-0">
                 <el-input v-model="form.button_text" placeholder="例如 立即订阅" />
               </el-form-item>
-              <el-form-item label="支付跳转链接">
+              <el-form-item label="支付跳转链接" class="!mb-0">
                 <el-input v-model="form.cta_url" placeholder="可选，未配置时走支付渠道链接或收款码" />
               </el-form-item>
-              <el-form-item label="权益列表" class="md:col-span-2">
+              <el-form-item label="权益列表" class="md:col-span-2 !mb-0">
                 <el-input
                   v-model="form.feature_points_text"
                   type="textarea"
-                  :rows="5"
+                  :rows="2"
                   placeholder="每行一个卖点，例如：&#10;更快响应&#10;适合高频使用"
                 />
               </el-form-item>
@@ -302,29 +302,29 @@ onMounted(fetchList)
           </section>
         </div>
 
-        <aside class="rounded-[28px] border border-slate-200 bg-slate-950 p-6 text-white shadow-[0_24px_60px_-36px_rgba(15,23,42,0.75)]">
+        <aside class="rounded-[24px] border border-slate-200 bg-white p-3.5 shadow-sm">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <div class="text-sm uppercase tracking-[0.24em] text-slate-400">{{ previewCard.typeLabel }}</div>
-              <h3 class="mt-3 text-2xl font-semibold">{{ previewCard.name }}</h3>
+              <div class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">{{ previewCard.typeLabel }}</div>
+              <h3 class="mt-2 text-xl font-semibold text-slate-900">{{ previewCard.name }}</h3>
             </div>
-            <span v-if="previewCard.badgeText" class="rounded-full bg-amber-400 px-3 py-1 text-xs font-semibold text-slate-950">
+            <span v-if="previewCard.badgeText" class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
               {{ previewCard.badgeText }}
             </span>
           </div>
 
-          <div class="mt-6 flex items-end gap-2">
-            <span class="text-4xl font-semibold">¥{{ previewCard.price }}</span>
-            <span class="pb-1 text-sm text-slate-400">/{{ previewCard.typeLabel }}</span>
+          <div class="mt-3 flex items-end gap-2">
+            <span class="text-[28px] font-semibold text-slate-900">¥{{ previewCard.price }}</span>
+            <span class="pb-0.5 text-sm text-slate-400">/{{ previewCard.typeLabel }}</span>
           </div>
-          <div v-if="previewCard.originalPrice" class="mt-2 text-sm text-slate-500 line-through">原价 ¥{{ previewCard.originalPrice }}</div>
-          <p class="mt-4 text-sm leading-6 text-slate-300">{{ previewCard.summary }}</p>
+          <div v-if="previewCard.originalPrice" class="mt-1.5 text-xs text-slate-400 line-through">原价 ¥{{ previewCard.originalPrice }}</div>
+          <p class="mt-2.5 text-xs leading-5 text-slate-500">{{ previewCard.summary }}</p>
 
-          <div class="mt-6 space-y-3">
+          <div class="mt-3 space-y-1.5">
             <div
               v-for="point in previewCard.points.length ? previewCard.points : ['建议补充权益说明']"
               :key="point"
-              class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100"
+              class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
             >
               {{ point }}
             </div>
@@ -332,8 +332,8 @@ onMounted(fetchList)
 
           <button
             type="button"
-            class="mt-8 flex w-full items-center justify-center rounded-2xl border border-transparent px-4 py-3 text-sm font-semibold transition"
-            :class="previewCard.recommended ? 'bg-sky-400 text-slate-950' : 'bg-white text-slate-950'"
+            class="mt-4 flex w-full items-center justify-center rounded-2xl border border-transparent px-4 py-2 text-sm font-semibold transition"
+            :class="previewCard.recommended ? 'bg-sky-500 text-white' : 'bg-slate-900 text-white'"
           >
             {{ previewCard.buttonText }}
           </button>
