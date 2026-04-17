@@ -13,6 +13,9 @@ export const useAdminStore = defineStore('admin', () => {
     token.value = data.access_token
     admin.value = data.admin
     localStorage.setItem('admin_token', data.access_token)
+    if (data.refresh_token) {
+      localStorage.setItem('admin_refresh_token', data.refresh_token)
+    }
     return data
   }
 
@@ -20,6 +23,7 @@ export const useAdminStore = defineStore('admin', () => {
     token.value = ''
     admin.value = null
     localStorage.removeItem('admin_token')
+    localStorage.removeItem('admin_refresh_token')
   }
 
   const isLoggedIn = () => !!token.value

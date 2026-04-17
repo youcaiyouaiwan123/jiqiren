@@ -50,6 +50,17 @@ export const useAuthStore = defineStore('auth', () => {
     return user.value
   }
 
+  async function updateProfile(params: { nickname?: string }) {
+    const res = await api.put('/auth/profile', params)
+    user.value = res.data as UserInfo
+    return user.value
+  }
+
+  async function changePassword(old_password: string, new_password: string) {
+    const res = await api.post('/auth/change-password', { old_password, new_password })
+    return res.data
+  }
+
   function logout() {
     token.value = ''
     user.value = null
@@ -60,5 +71,5 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isLoggedIn = () => !!token.value
 
-  return { token, user, login, sendCode, register, fetchProfile, logout, isLoggedIn }
+  return { token, user, login, sendCode, register, fetchProfile, updateProfile, changePassword, logout, isLoggedIn }
 })

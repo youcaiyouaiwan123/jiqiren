@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_user_id
-from app.core.redis import get_redis
+from app.core.redis import get_redis, atomic_incr
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -482,9 +482,7 @@ async def send_verify_code(body: SendCodeBody, request: Request, db: AsyncSessio
     client_ip = _client_ip(request)
     if client_ip != "unknown":
         ip_key = _ip_rate_key(body.type, client_ip)
-        ip_count = await redis.incr(ip_key)
-        if ip_count == 1:
-            await redis.expire(ip_key, VERIFY_CODE_IP_WINDOW)
+        ip_count = await atomic_incr(redis, ip_key, VERIFY_CODE_IP_WINDOW)
         if ip_count > VERIFY_CODE_IP_MAX:
             ttl = max(await redis.ttl(ip_key), 1)
             return fail(1022, f"当前 IP 请求过于频繁，请 {ttl} 秒后重试")
@@ -524,9 +522,7 @@ async def register(body: RegisterBody, request: Request, db: AsyncSession = Depe
     # ── Layer 3: IP 每小时注册尝试次数限制 ──
     if redis:
         attempt_key = _REG_ATTEMPT_KEY.format(ip=ip)
-        attempts = await redis.incr(attempt_key)
-        if attempts == 1:
-            await redis.expire(attempt_key, _REG_ATTEMPT_WINDOW)
+        attempts = await atomic_incr(redis, attempt_key, _REG_ATTEMPT_WINDOW)
         if attempts > _REG_ATTEMPT_MAX:
             ttl = max(await redis.ttl(attempt_key), 1)
             logger.warning("[注册] IP尝试超限 | ip=%s attempts=%s", ip, attempts)
@@ -639,9 +635,7 @@ async def register(body: RegisterBody, request: Request, db: AsyncSession = Depe
     # 注册成功：累计该 IP 今日注册数
     if redis:
         daily_key = _REG_DAILY_KEY.format(ip=ip)
-        count = await redis.incr(daily_key)
-        if count == 1:
-            await redis.expire(daily_key, _REG_DAILY_WINDOW)
+        count = await atomic_incr(redis, daily_key, _REG_DAILY_WINDOW)
 
     logger.info("[注册] 成功 | user_id=%s ip=%s", user.id, ip)
     return success({"user_id": user.id, "nickname": user.nickname, "free_chats_left": user.free_chats_left})
@@ -655,9 +649,7 @@ async def login(body: LoginBody, request: Request, db: AsyncSession = Depends(ge
     # ── IP 撞库防护：每 15 分钟最多尝试 20 次 ──
     if redis:
         login_ip_key = _LOGIN_IP_KEY.format(ip=ip)
-        count = await redis.incr(login_ip_key)
-        if count == 1:
-            await redis.expire(login_ip_key, _LOGIN_IP_WINDOW)
+        count = await atomic_incr(redis, login_ip_key, _LOGIN_IP_WINDOW)
         if count > _LOGIN_IP_MAX:
             ttl = max(await redis.ttl(login_ip_key), 1)
             logger.warning("[登录] IP登录超频 | ip=%s count=%s", ip, count)
@@ -674,10 +666,12 @@ async def login(body: LoginBody, request: Request, db: AsyncSession = Depends(ge
     if user.deleted_at is not None:
         return fail(1004, "账号已注销")
     if not verify_password(body.password, user.password_hash):
+        logger.warning("[登录] 密码错误 | ip=%s account=%.30s", ip, account)
         return fail(1001, "密码错误")
     if user.status == "banned":
         return fail(2003, "账号已被封禁")
     token_data = {"user_id": user.id, "role": "user"}
+    logger.info("[登录] 成功 | user_id=%s ip=%s", user.id, ip)
     return success({
         "access_token": create_access_token(token_data),
         "refresh_token": create_refresh_token(token_data),
@@ -707,3 +701,72 @@ async def get_profile(user_id: int = Depends(get_current_user_id), db: AsyncSess
     if not user:
         return fail(1004, "用户不存在")
     return success(_user_dict(user))
+
+
+# ── 密码复杂度 ────────────────────────────────────────────────────────────────
+_PWD_MIN_LEN = 8
+_PWD_PATTERN = re.compile(
+    r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$"
+)
+
+
+def _validate_user_password(password: str) -> str | None:
+    if len(password) < _PWD_MIN_LEN:
+        return f"密码不能少于 {_PWD_MIN_LEN} 位"
+    if not re.search(r"[a-z]", password):
+        return "密码必须包含小写字母"
+    if not re.search(r"[A-Z]", password):
+        return "密码必须包含大写字母"
+    if not re.search(r"\d", password):
+        return "密码必须包含数字"
+    return None
+
+
+class UpdateProfileBody(BaseModel):
+    nickname: str | None = None
+
+
+class UserChangePasswordBody(BaseModel):
+    old_password: str
+    new_password: str
+
+
+@router.put("/profile", tags=["用户"])
+async def update_profile(
+    body: UpdateProfileBody,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await db.get(User, user_id)
+    if not user:
+        return fail(1004, "用户不存在")
+    if body.nickname is not None:
+        nickname = body.nickname.strip()
+        if not nickname:
+            return fail(1001, "昵称不能为空")
+        if len(nickname) > 50:
+            return fail(1001, "昵称不能超过 50 个字符")
+        user.nickname = nickname
+    logger.info("[个人中心] 更新信息 | user_id=%s", user_id)
+    return success(_user_dict(user))
+
+
+@router.post("/change-password", tags=["用户"])
+async def change_password(
+    body: UserChangePasswordBody,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    err = _validate_user_password(body.new_password)
+    if err:
+        return fail(1031, err)
+    user = await db.get(User, user_id)
+    if not user:
+        return fail(1004, "用户不存在")
+    if not verify_password(body.old_password, user.password_hash):
+        return fail(1001, "原密码错误")
+    if body.old_password == body.new_password:
+        return fail(1032, "新密码不能与原密码相同")
+    user.password_hash = hash_password(body.new_password)
+    logger.info("[个人中心] 修改密码 | user_id=%s", user_id)
+    return success({"message": "密码已修改，请重新登录"})

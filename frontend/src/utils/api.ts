@@ -20,9 +20,17 @@ api.interceptors.request.use((config) => {
 let _isRefreshing = false
 let _pendingQueue: Array<(token: string | null) => void> = []
 
+let _isAdminRefreshing = false
+let _adminPendingQueue: Array<(token: string | null) => void> = []
+
 function _notifyPending(token: string | null) {
   _pendingQueue.forEach((cb) => cb(token))
   _pendingQueue = []
+}
+
+function _notifyAdminPending(token: string | null) {
+  _adminPendingQueue.forEach((cb) => cb(token))
+  _adminPendingQueue = []
 }
 
 /** Calls /auth/refresh via raw axios (bypasses our interceptors to avoid loops). */
@@ -41,10 +49,26 @@ async function _tryRefresh(): Promise<string | null> {
   }
 }
 
+async function _tryAdminRefresh(): Promise<string | null> {
+  const refreshToken = localStorage.getItem('admin_refresh_token')
+  if (!refreshToken) return null
+  try {
+    const res = await axios.post('/api/admin/refresh', { refresh_token: refreshToken })
+    const wrapper = res.data
+    if (wrapper?.code !== 0 || !wrapper?.data?.access_token) return null
+    localStorage.setItem('admin_token', wrapper.data.access_token)
+    localStorage.setItem('admin_refresh_token', wrapper.data.refresh_token)
+    return wrapper.data.access_token as string
+  } catch {
+    return null
+  }
+}
+
 function _handleSessionExpired() {
   localStorage.removeItem('token')
   localStorage.removeItem('refresh_token')
   localStorage.removeItem('admin_token')
+  localStorage.removeItem('admin_refresh_token')
   localStorage.removeItem('user')
   ElMessage.warning({ message: '登录已过期，请重新登录', duration: 3000 })
   const path = window.location.pathname
@@ -63,12 +87,11 @@ api.interceptors.response.use(
       const isAdmin = res.config.url?.includes('/admin/')
       const isRetry = (res.config as Record<string, unknown>)._retry === true
 
-      // Attempt silent refresh for user (non-admin) requests on first 1002
+      // Silent refresh for user requests
       if (data.code === 1002 && !isAdmin && !isRetry) {
         ;(res.config as Record<string, unknown>)._retry = true
 
         if (_isRefreshing) {
-          // Another refresh is already in flight — queue this retry
           return new Promise((resolve, reject) => {
             _pendingQueue.push((token) => {
               if (token) {
@@ -96,7 +119,39 @@ api.interceptors.response.use(
         }
       }
 
-      // All other errors (including admin 1002 and retry failures)
+      // Silent refresh for admin requests
+      if (data.code === 1002 && isAdmin && !isRetry) {
+        ;(res.config as Record<string, unknown>)._retry = true
+
+        if (_isAdminRefreshing) {
+          return new Promise((resolve, reject) => {
+            _adminPendingQueue.push((token) => {
+              if (token) {
+                res.config.headers = { ...res.config.headers, Authorization: `Bearer ${token}` }
+                resolve(api(res.config))
+              } else {
+                reject(data)
+              }
+            })
+          })
+        }
+
+        _isAdminRefreshing = true
+        const newToken = await _tryAdminRefresh()
+        _isAdminRefreshing = false
+
+        if (newToken) {
+          _notifyAdminPending(newToken)
+          res.config.headers = { ...res.config.headers, Authorization: `Bearer ${newToken}` }
+          return api(res.config)
+        } else {
+          _notifyAdminPending(null)
+          _handleSessionExpired()
+          return Promise.reject(data)
+        }
+      }
+
+      // All other errors
       ElMessage.error(data.message || '请求失败')
       if (data.code === 1002) {
         localStorage.removeItem('token')

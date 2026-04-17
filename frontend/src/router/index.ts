@@ -6,6 +6,7 @@ const router = createRouter({
     { path: '/', redirect: '/login' },
     { path: '/login', name: 'UserLogin', component: () => import('@/views/user/Login.vue') },
     { path: '/chat', name: 'Chat', component: () => import('@/views/user/Chat.vue'), meta: { requiresAuth: true } },
+    { path: '/profile', name: 'UserProfile', component: () => import('@/views/user/Profile.vue'), meta: { requiresAuth: true } },
     { path: '/admin/login', name: 'AdminLogin', component: () => import('@/views/admin/Login.vue') },
     {
       path: '/admin',
@@ -31,6 +32,7 @@ const router = createRouter({
         { path: 'wecom', name: 'AdminWecom', component: () => import('@/views/admin/WecomConfig.vue') },
         { path: 'expire-reminders', name: 'AdminExpireReminders', component: () => import('@/views/admin/ExpireReminders.vue') },
         { path: 'token-usage', name: 'AdminTokenUsage', component: () => import('@/views/admin/TokenUsage.vue') },
+        { path: 'profile', name: 'AdminProfile', component: () => import('@/views/admin/Profile.vue') },
       ],
     },
   ],

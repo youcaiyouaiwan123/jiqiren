@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import BizException, get_current_admin
-from app.core.redis import get_redis
-from app.core.security import create_access_token, create_refresh_token, hash_password, verify_password
+from app.core.redis import get_redis, atomic_incr
+from app.core.security import create_access_token, create_refresh_token, decode_token, hash_password, verify_password
 from app.models.admin import Admin
 from app.utils.response import fail, success
 
@@ -94,9 +94,7 @@ async def admin_login(body: AdminLoginBody, request: Request, db: AsyncSession =
     # ── IP 频率限制 ──
     if redis:
         ip_key = _IP_FAIL_KEY.format(ip=ip)
-        ip_count = await redis.incr(ip_key)
-        if ip_count == 1:
-            await redis.expire(ip_key, _IP_WINDOW)
+        ip_count = await atomic_incr(redis, ip_key, _IP_WINDOW)
         if ip_count > _IP_MAX_ATTEMPTS:
             ttl = max(await redis.ttl(ip_key), 1)
             logger.warning("[管理登录] IP 超频被拦截 | ip=%s count=%s", ip, ip_count)
@@ -117,11 +115,14 @@ async def admin_login(body: AdminLoginBody, request: Request, db: AsyncSession =
 
     if not pwd_ok:
         logger.warning("[管理登录] 认证失败 | username=%s ip=%s", username, ip)
-        # 记录失败次数
+        # 记录失败次数（pipeline 保证 INCR+EXPIRE 原子执行，每次失败都重置窗口防卡点攻击）
         if redis:
             fail_key = _MAX_FAIL_KEY.format(username=username)
-            fail_count = await redis.incr(fail_key)
-            await redis.expire(fail_key, _FAIL_WINDOW)
+            async with redis.pipeline(transaction=True) as pipe:
+                pipe.incr(fail_key)
+                pipe.expire(fail_key, _FAIL_WINDOW)
+                results = await pipe.execute()
+            fail_count = int(results[0])
             lock_secs = _lock_ttl(fail_count)
             if lock_secs:
                 locked_key = _LOCKED_KEY.format(username=username)
@@ -150,6 +151,28 @@ async def admin_login(body: AdminLoginBody, request: Request, db: AsyncSession =
     })
 
 
+class AdminRefreshBody(BaseModel):
+    refresh_token: str
+
+
+@router.post("/refresh")
+async def admin_refresh_token(body: AdminRefreshBody):
+    payload = decode_token(body.refresh_token)
+    if not payload or payload.get("type") != "refresh" or payload.get("role") != "admin":
+        return fail(1002, "refresh_token 无效或已过期")
+    token_data = {
+        "admin_id": payload["admin_id"],
+        "role": "admin",
+        "admin_role": payload.get("admin_role", "admin"),
+    }
+    return success({
+        "access_token": create_access_token(token_data),
+        "refresh_token": create_refresh_token(token_data),
+        "token_type": "bearer",
+        "expires_in": 2592000,
+    })
+
+
 @router.post("/change-password")
 async def change_password(
     body: ChangePasswordBody,
@@ -175,6 +198,19 @@ async def change_password(
     admin.password_hash = hash_password(body.new_password)
     logger.info("[管理改密] 成功 | admin_id=%s username=%s", admin.id, admin.username)
     return success({"message": "密码已修改，请重新登录"})
+
+
+@router.get("/profile")
+async def admin_profile(current_admin: dict = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
+    admin = await db.get(Admin, current_admin["admin_id"])
+    if not admin:
+        return fail(1004, "管理员不存在")
+    return success({
+        "id": admin.id,
+        "username": admin.username,
+        "role": admin.role,
+        "created_at": admin.created_at.isoformat() if admin.created_at else None,
+    })
 
 
 @router.post("/unlock-admin")

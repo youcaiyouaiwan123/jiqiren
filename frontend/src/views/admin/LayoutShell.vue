@@ -81,7 +81,8 @@ function handleLogout() {
           {{ menuItems.find(m => m.path === activePath)?.label || '管理后台' }}
         </h1>
         <div class="flex items-center gap-3">
-          <span class="text-sm text-gray-500">{{ adminStore.admin?.username || 'admin' }}</span>
+          <span class="cursor-pointer text-sm text-gray-500 hover:text-blue-600 transition-colors" @click="router.push('/admin/profile')">{{ adminStore.admin?.username || 'admin' }}</span>
+          <el-button size="small" text type="primary" @click="router.push('/admin/profile')">个人中心</el-button>
           <el-button size="small" text type="danger" @click="handleLogout">退出</el-button>
         </div>
       </header>
