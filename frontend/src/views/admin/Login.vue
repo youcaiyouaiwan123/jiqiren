@@ -9,14 +9,23 @@ const router = useRouter()
 const adminStore = useAdminStore()
 const form = reactive({ username: '', password: '' })
 const loading = ref(false)
+const lockMsg = ref('')   // 锁定提示信息
 
 async function handleLogin() {
   if (!form.username || !form.password) { ElMessage.warning('请填写用户名和密码'); return }
   loading.value = true
+  lockMsg.value = ''
   try {
     await adminStore.login(form.username, form.password)
     router.push('/admin/dashboard')
-  } catch { /* interceptor */ } finally { loading.value = false }
+  } catch (err: any) {
+    // code 1030 = 账号锁定，展示在表单内而非全局 toast
+    if (err?.code === 1030) {
+      lockMsg.value = err.message || '账号已锁定，请稍后重试'
+    }
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
@@ -41,7 +50,8 @@ async function handleLogin() {
             <el-form-item>
               <el-input v-model="form.password" type="password" placeholder="密码" size="large" prefix-icon="Lock" show-password @keyup.enter="handleLogin" />
             </el-form-item>
-            <el-button type="primary" size="large" :loading="loading" class="w-full !h-11 !text-base" @click="handleLogin">登 录</el-button>
+            <el-alert v-if="lockMsg" :title="lockMsg" type="error" show-icon :closable="false" class="mb-3" />
+            <el-button type="primary" size="large" :loading="loading" :disabled="!!lockMsg" class="w-full !h-11 !text-base" @click="handleLogin">登 录</el-button>
           </el-form>
         </div>
       </div>
@@ -60,5 +70,6 @@ async function handleLogin() {
 .form-inner { width: 100%; max-width: 320px; }
 .form-title { font-size: 22px; font-weight: 700; color: #1a202c; margin-bottom: 4px; }
 .form-subtitle { font-size: 14px; color: #a0aec0; }
+.mb-3 { margin-bottom: 12px; }
 @media (max-width: 640px) { .login-brand { display: none; } .login-card { max-width: 400px; } }
 </style>
