@@ -50,6 +50,8 @@ class RegisterBody(BaseModel):
     nickname: str | None = None
     invite_code: str | None = None
     verify_code: str | None = None
+    website: str | None = None  # 蜜罐字段：正常用户不填，机器人会自动填充
+    ft: int | None = None       # 表单填写耗时(ms)，机器人通常 < 1000ms
 
 
 class LoginBody(BaseModel):
@@ -261,7 +263,23 @@ VERIFY_CODE_PREFIX = "verify_code:"
 VERIFY_CODE_TTL = 300
 VERIFY_CODE_COOLDOWN = 60
 VERIFY_CODE_IP_WINDOW = 3600
-VERIFY_CODE_IP_MAX = 10
+VERIFY_CODE_IP_MAX = 5          # 每IP每小时最多发 5 次（原 10，收紧降低薅羊毛成本）
+
+# ── 注册防护 ──────────────────────────────────────────────────────────────────
+_REG_ATTEMPT_KEY    = "reg_attempt:{ip}"   # 每IP每小时注册尝试次数
+_REG_ATTEMPT_MAX    = 15
+_REG_ATTEMPT_WINDOW = 3600
+
+_REG_DAILY_KEY      = "reg_daily:{ip}"    # 每IP每日成功注册账号数
+_REG_DAILY_MAX      = 3
+_REG_DAILY_WINDOW   = 86400
+
+_REG_MIN_FORM_MS    = 4000                # 最短表单填写耗时：< 4s 判定为机器人
+
+# ── 登录防护（撞库）────────────────────────────────────────────────────────────
+_LOGIN_IP_KEY       = "login_ip:{ip}"     # 每IP每15分钟登录尝试次数
+_LOGIN_IP_MAX       = 20
+_LOGIN_IP_WINDOW    = 900
 
 
 def _verify_code_key(target_type: str, target: str) -> str:
@@ -488,7 +506,40 @@ async def send_verify_code(body: SendCodeBody, request: Request, db: AsyncSessio
 
 
 @router.post("/register")
-async def register(body: RegisterBody, db: AsyncSession = Depends(get_db)):
+async def register(body: RegisterBody, request: Request, db: AsyncSession = Depends(get_db)):
+    ip = _client_ip(request)
+
+    # ── Layer 1: 蜜罐检测（静默假成功，不暴露拦截信息）──
+    if body.website:
+        logger.warning("[注册] 蜜罐触发 | ip=%s", ip)
+        return success({"user_id": 0, "nickname": "用户", "free_chats_left": 3})
+
+    # ── Layer 2: 表单耗时检测（< 4s 视为脚本提交）──
+    if body.ft is not None and body.ft < _REG_MIN_FORM_MS:
+        logger.warning("[注册] 提交过快 | ip=%s ft=%sms", ip, body.ft)
+        return fail(1040, "操作异常，请稍后重试")
+
+    redis = get_redis(required=False)
+
+    # ── Layer 3: IP 每小时注册尝试次数限制 ──
+    if redis:
+        attempt_key = _REG_ATTEMPT_KEY.format(ip=ip)
+        attempts = await redis.incr(attempt_key)
+        if attempts == 1:
+            await redis.expire(attempt_key, _REG_ATTEMPT_WINDOW)
+        if attempts > _REG_ATTEMPT_MAX:
+            ttl = max(await redis.ttl(attempt_key), 1)
+            logger.warning("[注册] IP尝试超限 | ip=%s attempts=%s", ip, attempts)
+            return fail(1041, f"操作过于频繁，请 {ttl // 60 + 1} 分钟后重试")
+
+    # ── Layer 4: IP 每日成功注册上限（防批量薅账号）──
+    if redis:
+        daily_key = _REG_DAILY_KEY.format(ip=ip)
+        daily_count = int(await redis.get(daily_key) or 0)
+        if daily_count >= _REG_DAILY_MAX:
+            logger.warning("[注册] IP日注册超限 | ip=%s count=%s", ip, daily_count)
+            return fail(1042, "今日注册次数已达上限，请明天再试")
+
     cfg = await _get_all_register_config(db)
     phone = _normalize_phone(body.phone)
     email = _normalize_email(body.email)
@@ -584,11 +635,34 @@ async def register(body: RegisterBody, db: AsyncSession = Depends(get_db)):
         invite.status = "used"
         invite.used_by = user.id
         invite.used_at = datetime.now()
+
+    # 注册成功：累计该 IP 今日注册数
+    if redis:
+        daily_key = _REG_DAILY_KEY.format(ip=ip)
+        count = await redis.incr(daily_key)
+        if count == 1:
+            await redis.expire(daily_key, _REG_DAILY_WINDOW)
+
+    logger.info("[注册] 成功 | user_id=%s ip=%s", user.id, ip)
     return success({"user_id": user.id, "nickname": user.nickname, "free_chats_left": user.free_chats_left})
 
 
 @router.post("/login")
-async def login(body: LoginBody, db: AsyncSession = Depends(get_db)):
+async def login(body: LoginBody, request: Request, db: AsyncSession = Depends(get_db)):
+    ip = _client_ip(request)
+    redis = get_redis(required=False)
+
+    # ── IP 撞库防护：每 15 分钟最多尝试 20 次 ──
+    if redis:
+        login_ip_key = _LOGIN_IP_KEY.format(ip=ip)
+        count = await redis.incr(login_ip_key)
+        if count == 1:
+            await redis.expire(login_ip_key, _LOGIN_IP_WINDOW)
+        if count > _LOGIN_IP_MAX:
+            ttl = max(await redis.ttl(login_ip_key), 1)
+            logger.warning("[登录] IP登录超频 | ip=%s count=%s", ip, count)
+            return fail(1043, f"登录尝试过于频繁，请 {ttl // 60 + 1} 分钟后重试")
+
     account = body.account.strip()
     if "@" in account:
         stmt = select(User).where(User.email == account.lower())

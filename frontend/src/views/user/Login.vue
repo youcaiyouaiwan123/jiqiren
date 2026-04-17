@@ -51,7 +51,12 @@ function isValidTarget(target: string, type: 'phone' | 'email') {
 }
 
 const loginForm = reactive({ account: '', password: '' })
-const regForm = reactive({ phone: '', email: '', password: '', confirmPassword: '', nickname: '', invite_code: '', verify_code: '' })
+const regForm = reactive({ phone: '', email: '', password: '', confirmPassword: '', nickname: '', invite_code: '', verify_code: '', website: '' })
+// 记录用户第一次与注册表单交互的时间，用于耗时校验
+let _regFormStartTime = 0
+function _touchRegForm() {
+  if (!_regFormStartTime) _regFormStartTime = Date.now()
+}
 const regMethod = ref<'phone' | 'email'>('phone')
 
 // 验证码倒计时 & 发送状态
@@ -168,10 +173,13 @@ async function handleRegister() {
   }
   loading.value = true
   try {
-    const params: { phone?: string; email?: string; password: string; nickname?: string; invite_code?: string; verify_code?: string } = {
+    const ft = _regFormStartTime ? Date.now() - _regFormStartTime : null
+    const params: Record<string, unknown> = {
       password: regForm.password,
       nickname: regForm.nickname || undefined,
       verify_code: regForm.verify_code,
+      website: regForm.website,   // 蜜罐（正常用户始终为空）
+      ft,                          // 表单填写耗时
     }
     if (regMethod.value === 'phone') params.phone = regForm.phone
     else params.email = regForm.email
@@ -255,6 +263,10 @@ async function handleRegister() {
           </el-form>
 
           <el-form v-else @submit.prevent="handleRegister" class="mt-8">
+            <!-- 蜜罐字段：CSS 隐藏（不用 display:none 以防机器人识别），正常用户不可见也不会填写 -->
+            <div class="hp-wrap" aria-hidden="true">
+              <input v-model="regForm.website" type="text" name="website" autocomplete="off" tabindex="-1" />
+            </div>
             <div v-if="supportsPhone && supportsEmail" class="reg-method-toggle">
               <el-radio-group v-model="regMethod" size="small">
                 <el-radio-button value="phone">手机号注册</el-radio-button>
@@ -262,30 +274,30 @@ async function handleRegister() {
               </el-radio-group>
             </div>
             <el-form-item v-if="regMethod === 'phone'">
-              <el-input v-model="regForm.phone" placeholder="手机号" size="large" prefix-icon="Phone" />
+              <el-input v-model="regForm.phone" placeholder="手机号" size="large" prefix-icon="Phone" @focus="_touchRegForm" />
             </el-form-item>
             <el-form-item v-if="regMethod === 'email'">
-              <el-input v-model="regForm.email" placeholder="邮箱" size="large" prefix-icon="Message" />
+              <el-input v-model="regForm.email" placeholder="邮箱" size="large" prefix-icon="Message" @focus="_touchRegForm" />
             </el-form-item>
             <el-form-item>
               <div class="code-row">
-                <el-input v-model="regForm.verify_code" placeholder="验证码" size="large" prefix-icon="Key" maxlength="6" />
+                <el-input v-model="regForm.verify_code" placeholder="验证码" size="large" prefix-icon="Key" maxlength="6" @focus="_touchRegForm" />
                 <el-button size="large" native-type="button" :disabled="sendBtnDisabled" :loading="codeSending" class="send-code-btn" @click="handleSendCode">
                   {{ sendBtnText }}
                 </el-button>
               </div>
             </el-form-item>
             <el-form-item>
-              <el-input v-model="regForm.nickname" placeholder="昵称（选填）" size="large" prefix-icon="User" />
+              <el-input v-model="regForm.nickname" placeholder="昵称（选填）" size="large" prefix-icon="User" @focus="_touchRegForm" />
             </el-form-item>
             <el-form-item>
-              <el-input v-model="regForm.password" type="password" placeholder="密码" size="large" prefix-icon="Lock" show-password />
+              <el-input v-model="regForm.password" type="password" placeholder="密码" size="large" prefix-icon="Lock" show-password @focus="_touchRegForm" />
             </el-form-item>
             <el-form-item>
-              <el-input v-model="regForm.confirmPassword" type="password" placeholder="确认密码" size="large" prefix-icon="Lock" show-password @keyup.enter="handleRegister" />
+              <el-input v-model="regForm.confirmPassword" type="password" placeholder="确认密码" size="large" prefix-icon="Lock" show-password @keyup.enter="handleRegister" @focus="_touchRegForm" />
             </el-form-item>
             <el-form-item v-if="regConfig.invite_code_required">
-              <el-input v-model="regForm.invite_code" placeholder="邀请码" size="large" prefix-icon="Ticket" />
+              <el-input v-model="regForm.invite_code" placeholder="邀请码" size="large" prefix-icon="Ticket" @focus="_touchRegForm" />
             </el-form-item>
             <div v-if="regConfig.terms_url || regConfig.privacy_url" class="terms-text">
               注册即表示同意
@@ -311,6 +323,17 @@ async function handleRegister() {
 </template>
 
 <style scoped>
+/* 蜜罐字段：视觉上不可见，但保留在 DOM 中（display:none 会被机器人识别跳过） */
+.hp-wrap {
+  position: absolute;
+  left: -9999px;
+  top: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
 .login-page {
   min-height: 100vh;
   display: flex;
