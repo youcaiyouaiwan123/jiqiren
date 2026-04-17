@@ -12,8 +12,17 @@ services:
       - --collation-server=utf8mb4_unicode_ci
       - --default-authentication-plugin=caching_sha2_password
       - --max_connections=500
+      # ── 持久化与 PITR 必需参数 ──
+      - --server-id=1                      # 主从/备份均需 server-id
+      - --log-bin=binlog                   # 显式开启 binlog
+      - --binlog-format=ROW                # ROW 格式：记录行级变更，PITR 必需
+      - --binlog-expire-logs-seconds=604800  # binlog 保留 7 天（原 30 天，减少磁盘占用）
+      - --max-binlog-size=256M             # 单个 binlog 最大 256MB，超出自动 rotate
+      - --innodb-flush-log-at-trx-commit=1 # 每次提交刷盘，零数据丢失（性能换安全）
+      - --sync-binlog=1                    # binlog 每次提交同步，防崩溃丢失
     volumes:
       - mysql_data:/var/lib/mysql
+      - ./backups:/backups                 # 备份目录挂载，供 mysqldump 直接写入
     healthcheck:
       # 用 MYSQL_PWD 环境变量传密码，避免密码含 $ ! " ' 等字符把 shell 解析炸掉
       test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h localhost -uroot --silent"]

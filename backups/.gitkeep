@@ -1,0 +1,4 @@
+# 此目录由 scripts/db-backup.sh 自动管理
+# full/   — 全量备份（.sql.gz）
+# binlogs/ — binlog 副本
+# 备份文件本身不提交到 git（见 .gitignore）

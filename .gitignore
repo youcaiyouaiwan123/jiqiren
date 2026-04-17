@@ -8,3 +8,10 @@ backend/logs/
 knowledge/.obsidian/
 backend/data/chroma/
 backend/uploads/
+
+# 数据库备份文件（勿提交）
+backups/full/*.sql.gz
+backups/full/*.meta.txt
+backups/binlogs/binlog.*
+backups/backup.log
+backups/rollback_preview_*.sql
