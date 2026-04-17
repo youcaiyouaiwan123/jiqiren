@@ -203,17 +203,13 @@ async def redeem(
     user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    user = await db.get(User, user_id)
-    if not user:
-        return fail(1004, "用户不存在")
-
+    # 先锁住兑换码行，防止并发双花（两个请求同时读到 status=="unused"）
     now = datetime.now(timezone.utc)
     redeem_code = (
         await db.execute(
-            select(RedeemCode).where(
-                RedeemCode.code == body.code,
-                RedeemCode.status == "unused",
-            )
+            select(RedeemCode)
+            .where(RedeemCode.code == body.code, RedeemCode.status == "unused")
+            .with_for_update()
         )
     ).scalar_one_or_none()
     if not redeem_code:
@@ -222,6 +218,13 @@ async def redeem(
     if redeem_code.expire_at and redeem_code.expire_at < now:
         logger.info("[兑换] 兑换码已过期 | user_id=%s code=%s", user_id, body.code)
         return fail(1004, "兑换码无效或已过期")
+
+    # 锁住用户行，防止并发修改 free_chats_left / subscribe_expire 产生脏写
+    user = (
+        await db.execute(select(User).where(User.id == user_id).with_for_update())
+    ).scalar_one_or_none()
+    if not user:
+        return fail(1004, "用户不存在")
 
     if redeem_code.type == "days":
         base_time = max(now, user.subscribe_expire) if user.subscribe_expire and user.subscribe_expire > now else now
