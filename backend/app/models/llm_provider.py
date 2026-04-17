@@ -15,6 +15,7 @@ class LlmProvider(Base):
     api_url: Mapped[str] = mapped_column(String(500), nullable=False)
     api_key: Mapped[str] = mapped_column(String(500), nullable=False)
     model: Mapped[str] = mapped_column(String(100), nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, default=100, comment="尝试优先级，数字越小越先被选用")
     is_default: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[int] = mapped_column(Integer, default=1)
     input_price: Mapped[float | None] = mapped_column(DECIMAL(10, 4), nullable=True, comment="输入价格 USD/百万tokens")

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import axios from 'axios'
 import api from '@/utils/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Download, UploadFilled } from '@element-plus/icons-vue'
 
 const PAGE_SIZE = 20
 
@@ -21,6 +23,14 @@ interface UserRow {
   deleted_at: string | null
 }
 
+interface ImportRowResult {
+  row: number
+  status: 'ok' | 'fail'
+  phone: string
+  email: string
+  message: string
+}
+
 const loading = ref(false)
 const list = ref<UserRow[]>([])
 const total = ref(0)
@@ -29,6 +39,13 @@ const keyword = ref('')
 const statusFilter = ref('')
 const subscribePlanFilter = ref('')
 const defaultFreeChats = ref(3)
+
+// ── 多选 ──────────────────────────────────────────────────────────────────────
+const selectedRows = ref<UserRow[]>([])
+
+function onSelectionChange(rows: UserRow[]) {
+  selectedRows.value = rows
+}
 
 const statusOptions = [
   { label: '正常', value: 'active' },
@@ -144,6 +161,7 @@ async function softDeleteUser(row: UserRow) {
   } catch { /* cancel */ }
 }
 
+// ── 新增用户 ──────────────────────────────────────────────────────────────────
 const createDialogVisible = ref(false)
 const createForm = ref({
   nickname: '',
@@ -193,6 +211,7 @@ async function saveCreateUser() {
   } catch { /* handled */ }
 }
 
+// ── 编辑用户 ──────────────────────────────────────────────────────────────────
 const editDialogVisible = ref(false)
 const editForm = ref({ id: 0, nickname: '', phone: '', email: '', remark: '' })
 
@@ -221,7 +240,7 @@ async function saveEditUser() {
   } catch { /* handled */ }
 }
 
-// 修改订阅弹窗
+// ── 单条会员管理 ──────────────────────────────────────────────────────────────
 const memberDialogVisible = ref(false)
 const memberUserId = ref<number | null>(null)
 const memberForm = ref({ subscribe_plan: 'free', subscribe_expire: '' })
@@ -248,6 +267,7 @@ async function saveSubscribe() {
   } catch { /* handled */ }
 }
 
+// ── 试用次数管理 ─────────────────────────────────────────────────────────────
 const trialDialogVisible = ref(false)
 const trialUser = ref<UserRow | null>(null)
 const trialForm = ref({ mode: 'set', value: 0 })
@@ -275,6 +295,115 @@ async function saveTrial() {
   } catch { /* handled */ }
 }
 
+// ── 批量导入 ──────────────────────────────────────────────────────────────────
+const importDialogVisible = ref(false)
+const importLoading = ref(false)
+const importFile = ref<File | null>(null)
+const importSummary = ref<{ total: number; success: number; failed: number } | null>(null)
+const importResults = ref<ImportRowResult[]>([])
+
+function openImportDialog() {
+  importFile.value = null
+  importSummary.value = null
+  importResults.value = []
+  importDialogVisible.value = true
+}
+
+function handleImportFileChange(uploadFile: { raw?: File }) {
+  importFile.value = uploadFile.raw ?? null
+  importSummary.value = null
+  importResults.value = []
+}
+
+async function downloadTemplate() {
+  try {
+    const res = await axios.get('/api/admin/users/import-template', {
+      responseType: 'blob',
+      headers: { Authorization: `Bearer ${localStorage.getItem('admin_token') ?? ''}` },
+    })
+    const url = URL.createObjectURL(res.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'user_import_template.xlsx'
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch {
+    ElMessage.error('模板下载失败')
+  }
+}
+
+async function submitImport() {
+  if (!importFile.value) {
+    ElMessage.warning('请先选择 Excel 文件（.xlsx）')
+    return
+  }
+  importLoading.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', importFile.value)
+    const res = await api.post('/admin/users/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    importSummary.value = {
+      total: res.data.total,
+      success: res.data.success,
+      failed: res.data.failed,
+    }
+    importResults.value = res.data.results ?? []
+    if (res.data.success > 0) {
+      page.value = 1
+      await fetchList()
+    }
+  } catch { /* handled */ } finally {
+    importLoading.value = false
+  }
+}
+
+// ── 批量授权 ──────────────────────────────────────────────────────────────────
+const batchSubscribeDialogVisible = ref(false)
+const batchSubscribeLoading = ref(false)
+const batchSubscribeForm = ref({
+  mode: 'override' as 'override' | 'add_days',
+  subscribe_plan: 'monthly',
+  subscribe_expire: '',
+  add_days: 30,
+})
+
+function openBatchSubscribeDialog() {
+  batchSubscribeForm.value = {
+    mode: 'override',
+    subscribe_plan: 'monthly',
+    subscribe_expire: '',
+    add_days: 30,
+  }
+  batchSubscribeDialogVisible.value = true
+}
+
+async function saveBatchSubscribe() {
+  const ids = selectedRows.value.map((r) => r.id)
+  if (!ids.length) return
+  batchSubscribeLoading.value = true
+  try {
+    const payload: Record<string, unknown> = {
+      user_ids: ids,
+      mode: batchSubscribeForm.value.mode,
+    }
+    if (batchSubscribeForm.value.mode === 'override') {
+      payload.subscribe_plan = batchSubscribeForm.value.subscribe_plan
+      payload.subscribe_expire = normalizeDateTime(batchSubscribeForm.value.subscribe_expire)
+    } else {
+      payload.add_days = Number(batchSubscribeForm.value.add_days)
+    }
+    const res = await api.put('/admin/users/batch-subscribe', payload)
+    ElMessage.success(res.message || '批量授权成功')
+    batchSubscribeDialogVisible.value = false
+    selectedRows.value = []
+    await fetchList()
+  } catch { /* handled */ } finally {
+    batchSubscribeLoading.value = false
+  }
+}
+
 onMounted(async () => {
   await fetchDefaultFreeChats()
   await fetchList()
@@ -283,6 +412,7 @@ onMounted(async () => {
 
 <template>
   <div>
+    <!-- 工具栏 -->
     <div class="mb-4 flex flex-wrap items-center gap-3">
       <el-input v-model="keyword" placeholder="搜索昵称/手机号/邮箱/备注" clearable style="width: 280px" @keyup.enter="onSearch" />
       <el-select v-model="statusFilter" placeholder="全部状态" clearable style="width: 130px">
@@ -294,9 +424,17 @@ onMounted(async () => {
       <el-button type="primary" @click="onSearch">搜索</el-button>
       <el-button @click="onReset">重置</el-button>
       <el-button type="success" @click="openCreateDialog">新增用户</el-button>
+      <el-button @click="openImportDialog">批量导入</el-button>
+      <template v-if="selectedRows.length > 0">
+        <el-divider direction="vertical" />
+        <span class="text-sm text-gray-500">已选 {{ selectedRows.length }} 人</span>
+        <el-button type="primary" @click="openBatchSubscribeDialog">批量授权</el-button>
+      </template>
     </div>
 
-    <el-table :data="list" v-loading="loading" border stripe class="rounded-lg">
+    <!-- 用户表格 -->
+    <el-table :data="list" v-loading="loading" border stripe class="rounded-lg" @selection-change="onSelectionChange">
+      <el-table-column type="selection" width="50" :selectable="(row: UserRow) => !row.deleted_at" />
       <el-table-column prop="id" label="ID" width="72" />
       <el-table-column label="昵称" width="130">
         <template #default="{ row }">
@@ -356,6 +494,7 @@ onMounted(async () => {
       <el-pagination v-model:current-page="page" :page-size="PAGE_SIZE" :total="total" layout="prev, pager, next" background @current-change="fetchList" />
     </div>
 
+    <!-- 新增用户 -->
     <el-dialog v-model="createDialogVisible" title="新增用户" width="520px" destroy-on-close>
       <el-form label-width="92px">
         <el-form-item label="昵称">
@@ -391,6 +530,7 @@ onMounted(async () => {
       </template>
     </el-dialog>
 
+    <!-- 编辑用户 -->
     <el-dialog v-model="editDialogVisible" title="编辑用户" width="520px" destroy-on-close>
       <el-form label-width="92px">
         <el-form-item label="昵称">
@@ -412,6 +552,7 @@ onMounted(async () => {
       </template>
     </el-dialog>
 
+    <!-- 单条会员管理 -->
     <el-dialog v-model="memberDialogVisible" title="会员管理" width="450px" destroy-on-close>
       <el-form label-width="92px">
         <el-form-item label="会员计划">
@@ -429,6 +570,7 @@ onMounted(async () => {
       </template>
     </el-dialog>
 
+    <!-- 试用次数管理 -->
     <el-dialog v-model="trialDialogVisible" title="试用控制" width="450px" destroy-on-close>
       <el-form label-width="100px">
         <el-form-item label="当前剩余">
@@ -449,6 +591,138 @@ onMounted(async () => {
       <template #footer>
         <el-button @click="trialDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="saveTrial">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 批量导入 -->
+    <el-dialog v-model="importDialogVisible" title="批量导入用户" width="600px" destroy-on-close>
+      <div class="space-y-5">
+        <!-- 提示 + 下载模板 -->
+        <div class="flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50 px-4 py-3">
+          <div class="text-sm text-blue-700 leading-relaxed">
+            按模板填写后上传，最多 1000 行。
+            <span class="block text-xs text-blue-400 mt-0.5">手机号或邮箱至少填一项，密码至少 6 位。</span>
+          </div>
+          <el-button size="small" type="primary" plain @click="downloadTemplate">
+            <el-icon class="mr-1"><Download /></el-icon>下载模板
+          </el-button>
+        </div>
+
+        <!-- 拖拽上传 -->
+        <el-upload
+          drag
+          action=""
+          :auto-upload="false"
+          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          :show-file-list="false"
+          :on-change="handleImportFileChange"
+        >
+          <div class="flex flex-col items-center py-6">
+            <el-icon class="mb-3 text-5xl text-gray-300"><UploadFilled /></el-icon>
+            <div class="text-sm text-gray-500">
+              拖拽文件到此处，或<em class="not-italic text-blue-500">点击选择</em>
+            </div>
+            <div class="mt-1 text-xs text-gray-400">仅支持 .xlsx 格式</div>
+            <div v-if="importFile" class="mt-3 flex items-center gap-1.5 rounded-md bg-green-50 px-3 py-1.5 text-sm font-medium text-green-600">
+              <el-icon><UploadFilled /></el-icon>{{ importFile.name }}
+            </div>
+          </div>
+        </el-upload>
+
+        <!-- 导入结果 -->
+        <template v-if="importSummary">
+          <div class="grid grid-cols-3 gap-3">
+            <div class="rounded-lg border px-4 py-3 text-center">
+              <div class="text-2xl font-bold text-gray-700">{{ importSummary.total }}</div>
+              <div class="mt-1 text-xs text-gray-400">总行数</div>
+            </div>
+            <div class="rounded-lg border border-green-100 bg-green-50 px-4 py-3 text-center">
+              <div class="text-2xl font-bold text-green-600">{{ importSummary.success }}</div>
+              <div class="mt-1 text-xs text-gray-400">导入成功</div>
+            </div>
+            <div
+              class="rounded-lg border px-4 py-3 text-center"
+              :class="importSummary.failed > 0 ? 'border-red-100 bg-red-50' : 'border-gray-100 bg-gray-50'"
+            >
+              <div class="text-2xl font-bold" :class="importSummary.failed > 0 ? 'text-red-500' : 'text-gray-300'">
+                {{ importSummary.failed }}
+              </div>
+              <div class="mt-1 text-xs text-gray-400">导入失败</div>
+            </div>
+          </div>
+
+          <el-table
+            v-if="importResults.some(r => r.status === 'fail')"
+            :data="importResults.filter(r => r.status === 'fail')"
+            size="small"
+            border
+            max-height="220"
+          >
+            <el-table-column prop="row" label="行" width="56" />
+            <el-table-column label="手机号" width="128">
+              <template #default="{ row: r }">{{ r.phone || '-' }}</template>
+            </el-table-column>
+            <el-table-column label="邮箱" min-width="140" show-overflow-tooltip>
+              <template #default="{ row: r }">{{ r.email || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="message" label="失败原因" min-width="150" show-overflow-tooltip />
+          </el-table>
+        </template>
+      </div>
+
+      <template #footer>
+        <el-button @click="importDialogVisible = false">关闭</el-button>
+        <el-button type="primary" :loading="importLoading" :disabled="!importFile" @click="submitImport">
+          开始导入
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 批量授权 -->
+    <el-dialog v-model="batchSubscribeDialogVisible" title="批量授权" width="480px" destroy-on-close>
+      <div class="mb-3 text-sm text-gray-500">
+        已选 <b class="text-gray-800">{{ selectedRows.length }}</b> 名用户
+      </div>
+      <el-form label-width="100px">
+        <el-form-item label="操作模式">
+          <el-radio-group v-model="batchSubscribeForm.mode" class="w-full">
+            <el-radio value="override">覆盖（直接设置计划和到期时间）</el-radio>
+            <el-radio value="add_days">追加（在现有到期时间上延长天数）</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <template v-if="batchSubscribeForm.mode === 'override'">
+          <el-form-item label="会员计划">
+            <el-select v-model="batchSubscribeForm.subscribe_plan" class="w-full">
+              <el-option v-for="item in subscribePlanOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="到期时间">
+            <el-date-picker
+              v-model="batchSubscribeForm.subscribe_expire"
+              type="datetime"
+              value-format="YYYY-MM-DD HH:mm:ss"
+              format="YYYY-MM-DD HH:mm:ss"
+              placeholder="免费用户可留空"
+              class="w-full"
+              clearable
+            />
+          </el-form-item>
+        </template>
+
+        <template v-else>
+          <el-form-item label="延长天数">
+            <el-input-number v-model="batchSubscribeForm.add_days" :min="1" :max="3650" class="w-full" />
+          </el-form-item>
+          <div class="ml-[100px] text-xs text-gray-400">
+            免费用户将自动升级为月度会员；有效期从当前到期时间（或今日）顺延
+          </div>
+        </template>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="batchSubscribeDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="batchSubscribeLoading" @click="saveBatchSubscribe">确认授权</el-button>
       </template>
     </el-dialog>
   </div>

@@ -1,5 +1,7 @@
 """AI 服务：调用大模型 streaming，支持 Anthropic / OpenAI / Google / 智谱"""
+import asyncio
 import base64
+import json
 import logging
 import mimetypes
 import re
@@ -8,6 +10,7 @@ from typing import Any, AsyncGenerator
 from urllib.parse import urlsplit, urlunsplit
 
 from app.config import get_settings
+from app.core.redis import get_redis
 from app.services.embedding_service import embed_texts
 from app.services.knowledge_config_service import build_effective_knowledge_config, load_knowledge_config_map
 from app.services.knowledge_index import query_knowledge
@@ -267,9 +270,21 @@ def _build_google_contents(history: list[dict]) -> list[dict]:
 # ──────────────────── 辅助：加载配置 ────────────────────
 
 
+_AI_CONFIG_CACHE_KEY = "config:ai_config"
+_AI_CONFIG_CACHE_TTL = 60   # 秒；管理端改配置后最多 60 秒生效
+
+
 async def _load_ai_config(db: AsyncSession) -> dict[str, str]:
+    redis = get_redis(required=False)
+    if redis:
+        raw = await redis.get(_AI_CONFIG_CACHE_KEY)
+        if raw:
+            return json.loads(raw)
     rows = (await db.execute(select(AiConfig))).scalars().all()
-    return {r.config_key: r.config_value for r in rows}
+    result = {r.config_key: r.config_value for r in rows}
+    if redis:
+        await redis.set(_AI_CONFIG_CACHE_KEY, json.dumps(result), ex=_AI_CONFIG_CACHE_TTL)
+    return result
 
 
 async def _load_default_provider(db: AsyncSession) -> LlmProvider | None:
@@ -284,12 +299,12 @@ async def _load_default_provider(db: AsyncSession) -> LlmProvider | None:
 
 
 async def _load_active_providers(db: AsyncSession) -> list[LlmProvider]:
-    """加载所有启用的模型，is_default=1 排最前面。"""
+    """加载所有启用的模型，按 priority 升序（数字越小越先试），is_default 优先。"""
     rows = (
         await db.execute(
             select(LlmProvider)
             .where(LlmProvider.is_active == 1)
-            .order_by(LlmProvider.is_default.desc(), LlmProvider.id.desc())
+            .order_by(LlmProvider.priority.asc(), LlmProvider.is_default.desc(), LlmProvider.id.desc())
         )
     ).scalars().all()
     return list(rows)
@@ -551,6 +566,11 @@ async def _stream_google(
 # ──────────────────── 厂商路由表 ────────────────────
 
 
+async def _anext(gen: AsyncGenerator) -> str:
+    """使 asyncio.wait_for 能包裹 async generator 的 __anext__。"""
+    return await gen.__anext__()
+
+
 _PROVIDER_MAP = {
     "claude": _stream_anthropic,
     "openai": _stream_openai,
@@ -585,6 +605,7 @@ async def stream_ai_response(
     system_prompt = ai_cfg.get("system_prompt", "你是一个专业的客服助手。")
     temperature = _parse_float(ai_cfg.get("temperature"), 0.7)
     max_tokens = _parse_int(ai_cfg.get("max_tokens"), 2048)
+    timeout_secs = _parse_int(ai_cfg.get("stream_timeout"), 30)
 
     # 3. 加载会话历史（已包含刚提交的用户消息）
     history = await _load_history(db, conversation_id)
@@ -597,7 +618,7 @@ async def stream_ai_response(
     if knowledge_context:
         system_prompt = f"{system_prompt}\n\n{knowledge_context}"
 
-    # 4. 按顺序尝试每个模型，失败自动切换
+    # 4. 按优先级顺序尝试每个 Key，失败自动切换
     last_error: Exception | None = None
     for i, prov in enumerate(providers):
         provider_key = _normalize_provider(prov.provider)
@@ -606,42 +627,58 @@ async def stream_ai_response(
             logger.warning("[AI] 跳过不支持的厂商: %s (model=%s)", prov.provider, prov.model)
             continue
 
-        try:
-            logger.info("[AI] 开始生成 | user=%s conv=%s provider=%s model=%s%s",
-                        user_id, conversation_id, provider_key, prov.model,
-                        "" if i == 0 else f" (第{i+1}次切换)")
+        logger.info("[AI] 开始生成 | user=%s conv=%s provider=%s model=%s priority=%d%s",
+                    user_id, conversation_id, provider_key, prov.model, prov.priority,
+                    "" if i == 0 else f" (第{i+1}次切换)")
 
-            usage["model"] = prov.model
-            usage["input_price"] = float(prov.input_price) if prov.input_price else 0.0
-            usage["output_price"] = float(prov.output_price) if prov.output_price else 0.0
-            chunks: list[str] = []
-            async for chunk in stream_fn(
-                provider=provider_key,
-                api_key=prov.api_key,
-                api_url=prov.api_url,
-                model=prov.model,
-                system_prompt=system_prompt,
-                messages=history,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                usage=usage,
-            ):
-                chunks.append(chunk)
+        usage["model"] = prov.model
+        usage["input_price"] = float(prov.input_price) if prov.input_price else 0.0
+        usage["output_price"] = float(prov.output_price) if prov.output_price else 0.0
+
+        gen = stream_fn(
+            provider=provider_key,
+            api_key=prov.api_key,
+            api_url=prov.api_url,
+            model=prov.model,
+            system_prompt=system_prompt,
+            messages=history,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            usage=usage,
+        )
+        yielded_first = False
+        try:
+            # 首包超时：只对第一个 chunk 计时，收到输出后不再限制
+            try:
+                first_chunk = await asyncio.wait_for(_anext(gen), timeout=timeout_secs)
+            except asyncio.TimeoutError:
+                await gen.aclose()
+                raise asyncio.TimeoutError(f"首包超时（>{timeout_secs}s）")
+            except StopAsyncIteration:
+                await gen.aclose()
+                logger.info("[AI] 完成（空响应）| provider=%s model=%s", provider_key, prov.model)
+                return
+
+            yielded_first = True
+            yield first_chunk
+            async for chunk in gen:
                 yield chunk
 
             logger.info("[AI] 完成 | user=%s conv=%s provider=%s model=%s in=%s out=%s",
                         user_id, conversation_id, provider_key, prov.model,
                         usage.get("input_tokens", 0), usage.get("output_tokens", 0))
-            return  # 成功，结束
+            return
 
         except Exception as exc:
             last_error = exc
-            if chunks:
+            if yielded_first:
                 logger.error("[AI] 流式中途失败，已有部分输出，不再切换 | provider=%s model=%s err=%s",
-                             provider_key, prov.model, exc)
-                return  # 已经输出了部分内容，不能切换
-            logger.warning("[AI] 调用失败，尝试下一个模型 | provider=%s model=%s err=%s",
-                           provider_key, prov.model, exc)
+                             provider_key, prov.model, _short_error_text(exc))
+                return
+            is_timeout = isinstance(exc, asyncio.TimeoutError)
+            logger.warning("[AI] 调用失败%s，尝试下一个 | provider=%s model=%s priority=%d err=%s",
+                           "（首包超时）" if is_timeout else "（API错误）",
+                           provider_key, prov.model, prov.priority, _short_error_text(exc))
             continue
 
     raise RuntimeError(f"所有模型均调用失败: {last_error}")

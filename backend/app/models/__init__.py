@@ -4,8 +4,12 @@ from app.models.analytics_daily import AnalyticsDaily
 from app.models.analytics_model_daily import AnalyticsModelDaily
 from app.models.analytics_user_daily import AnalyticsUserDaily
 from app.models.conversation import Conversation
+from app.models.conversation_archive import ConversationArchive
 from app.models.message import Message
+from app.models.message_archive import MessageArchive
+from app.models.message_feedback import MessageFeedback
 from app.models.token_usage import TokenUsage
+from app.models.token_usage_archive import TokenUsageArchive
 from app.models.payment import Payment
 from app.models.redeem_code import RedeemCode
 from app.models.invite_code import InviteCode
@@ -22,7 +26,10 @@ from app.models.wecom_config import WecomConfig
 from app.models.register_config import RegisterConfig
 
 __all__ = [
-    "User", "Admin", "AnalyticsDaily", "AnalyticsModelDaily", "AnalyticsUserDaily", "Conversation", "Message", "TokenUsage",
+    "User", "Admin", "AnalyticsDaily", "AnalyticsModelDaily", "AnalyticsUserDaily",
+    "Conversation", "ConversationArchive",
+    "Message", "MessageArchive", "MessageFeedback",
+    "TokenUsage", "TokenUsageArchive",
     "Payment", "RedeemCode", "InviteCode", "FeishuRoute", "AiConfig",
     "Announcement", "BannedWord", "ExpireReminderConfig", "KnowledgeConfig",
     "LlmProvider", "PaymentConfig", "Plan", "WecomConfig", "RegisterConfig",

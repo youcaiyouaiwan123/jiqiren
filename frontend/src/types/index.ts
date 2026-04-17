@@ -144,6 +144,7 @@ export interface ChatMessage {
   images: ChatImage[]
   docs: KnowledgeDoc[]
   retrieval?: RetrievalInfo | null
+  rating?: 'like' | 'dislike' | null
   created_at: string | null
 }
 

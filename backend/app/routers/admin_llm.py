@@ -25,6 +25,7 @@ class LlmBody(BaseModel):
     api_url: str | None = None
     api_key: str | None = None
     model: str | None = None
+    priority: int | None = None
     input_price: float | None = None
     output_price: float | None = None
     is_default: int | None = None

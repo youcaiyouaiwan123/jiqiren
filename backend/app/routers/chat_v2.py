@@ -14,6 +14,7 @@ from app.core.database import async_session, get_db
 from app.core.deps import PageParams, get_current_user_id
 from app.models.conversation import Conversation
 from app.models.message import Message
+from app.models.message_feedback import MessageFeedback
 from app.models.token_usage import TokenUsage
 from app.models.user import User
 from app.utils.response import fail, paginate, success
@@ -53,6 +54,10 @@ class SendMessageBody(BaseModel):
     conversation_id: int | None = None
     message: str
     images: list[dict] | None = None
+
+
+class FeedbackBody(BaseModel):
+    rating: str  # "like" | "dislike"
 
 
 @router.post("/transcribe")
@@ -232,6 +237,16 @@ async def get_messages(
     rows = (
         await db.execute(base.order_by(Message.created_at.asc()).offset(pager.offset).limit(pager.page_size))
     ).scalars().all()
+
+    msg_ids = [m.id for m in rows if m.role == "assistant"]
+    feedback_map: dict[int, str] = {}
+    if msg_ids:
+        fb_rows = (await db.execute(
+            select(MessageFeedback.message_id, MessageFeedback.rating)
+            .where(MessageFeedback.message_id.in_(msg_ids))
+        )).all()
+        feedback_map = {row.message_id: row.rating for row in fb_rows if row.rating}
+
     items = [
         {
             "id": message.id,
@@ -239,6 +254,7 @@ async def get_messages(
             "content": message.content,
             "images": message.images or [],
             "docs": message.docs or [],
+            "rating": feedback_map.get(message.id) if message.role == "assistant" else None,
             "created_at": message.created_at.isoformat() if message.created_at else None,
         }
         for message in rows
@@ -388,6 +404,17 @@ async def send_message(
                 except Exception:
                     logger.exception("[飞书同步] 入队失败 | user_id=%s conv_id=%s", user_id, conv_id)
 
+                try:
+                    from app.services.satisfaction_service import enqueue_satisfaction_scoring
+
+                    await enqueue_satisfaction_scoring(
+                        ai_message_id=ai_msg.id,
+                        conv_id=conv_id,
+                        user_id=user_id,
+                    )
+                except Exception:
+                    logger.exception("[满意度] 入队失败 | user_id=%s ai_msg_id=%s", user_id, ai_msg.id)
+
                 yield f"event: done\ndata: {json.dumps(done_data, ensure_ascii=False)}\n\n"
         except Exception:
             if not has_subscription:
@@ -403,3 +430,30 @@ async def send_message(
             yield f"event: error\ndata: {json.dumps(err, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@router.post("/messages/{message_id}/feedback")
+async def submit_feedback(
+    message_id: int,
+    body: FeedbackBody,
+    user_id: int = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    if body.rating not in ("like", "dislike"):
+        return fail(4001, "rating 只能为 like 或 dislike")
+
+    msg = await db.get(Message, message_id)
+    if not msg or msg.user_id != user_id or msg.role != "assistant":
+        return fail(1004, "消息不存在")
+
+    from app.services.satisfaction_service import score_explicit
+
+    level = await score_explicit(
+        ai_message_id=message_id,
+        user_id=user_id,
+        conv_id=msg.conversation_id,
+        rating=body.rating,
+        db=db,
+    )
+    logger.info("[满意度] 用户反馈 | user_id=%s msg_id=%s rating=%s level=%s", user_id, message_id, body.rating, level)
+    return success({"rating": body.rating, "satisfaction_level": level})

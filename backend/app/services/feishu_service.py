@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from collections.abc import Mapping
 from typing import Any
@@ -13,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 FEISHU_OPEN_API = "https://open.feishu.cn/open-apis"
 FEISHU_TOKEN_TTL_SECONDS = 115 * 60
+_TOKEN_LOCK_PREFIX = "feishu:token_lock:"
+_TOKEN_LOCK_TTL = 30   # 最多持锁 30 秒，防止锁持有者崩溃后死锁
 
 
 class FeishuApiError(Exception):
@@ -280,10 +283,23 @@ async def get_tenant_access_token(
 ) -> str:
     redis_conn = _resolve_redis(redis_client)
     cache_key = _token_cache_key(app_id)
+
     if redis_conn is not None and not force_refresh:
         cached = await redis_conn.get(cache_key)
         if cached:
             return cached
+
+        # 缓存未命中：尝试获取分布式锁，防止并发击穿
+        lock_key = f"{_TOKEN_LOCK_PREFIX}{app_id}"
+        acquired = await redis_conn.set(lock_key, "1", nx=True, ex=_TOKEN_LOCK_TTL)
+        if not acquired:
+            # 其他协程持锁刷新中，等待缓存填充（最多 3 秒）
+            for _ in range(30):
+                await asyncio.sleep(0.1)
+                cached = await redis_conn.get(cache_key)
+                if cached:
+                    return cached
+            # 等待超时（锁持有者可能已崩溃），自己去刷新
 
     async with httpx.AsyncClient(timeout=20.0) as client:
         response = await client.post(
@@ -302,6 +318,65 @@ async def get_tenant_access_token(
     if redis_conn is not None:
         await redis_conn.set(cache_key, token, ex=ttl_seconds)
     return token
+
+
+async def update_bitable_record(
+    *,
+    app_id: str,
+    app_secret: str,
+    app_token: str,
+    table_id: str,
+    record_id: str,
+    fields: Mapping[str, Any],
+    redis_client: aioredis.Redis | None = None,
+) -> dict[str, Any]:
+    redis_conn = _resolve_redis(redis_client)
+    last_error: Exception | None = None
+    payload_fields = {k: v for k, v in fields.items() if v is not None}
+    normalized_app_token, normalized_table_id = _normalize_bitable_ids(app_token, table_id)
+
+    for force_refresh in (False, True):
+        try:
+            token = await get_tenant_access_token(
+                app_id,
+                app_secret,
+                redis_conn,
+                force_refresh=force_refresh,
+            )
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                response = await client.put(
+                    f"{FEISHU_OPEN_API}/bitable/v1/apps/{normalized_app_token}/tables/{normalized_table_id}/records/{record_id}",
+                    headers={"Authorization": f"Bearer {token}"},
+                    json={"fields": payload_fields},
+                )
+                response.raise_for_status()
+                data = response.json()
+            if data.get("code") == 0:
+                return data.get("data") or {}
+            last_error = FeishuApiError(f"更新飞书多维表格失败: {_format_feishu_error(data)}")
+            if redis_conn:
+                await redis_conn.delete(_token_cache_key(app_id))
+        except httpx.HTTPStatusError as exc:
+            detail = _response_detail(exc.response)
+            last_error = FeishuApiError(f"调用飞书接口异常: status={exc.response.status_code} detail={detail}")
+            if not force_refresh:
+                if redis_conn:
+                    await redis_conn.delete(_token_cache_key(app_id))
+                continue
+            break
+        except Exception as exc:
+            last_error = exc
+            if not force_refresh:
+                if redis_conn:
+                    await redis_conn.delete(_token_cache_key(app_id))
+                continue
+            break
+
+    if isinstance(last_error, FeishuApiError):
+        raise last_error
+    if last_error is not None:
+        raise FeishuApiError(f"调用飞书接口异常: {last_error}") from last_error
+    raise FeishuApiError("调用飞书接口异常")
 
 
 async def create_bitable_record(

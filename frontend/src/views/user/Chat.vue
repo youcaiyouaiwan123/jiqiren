@@ -27,6 +27,7 @@ const contextMenuConvId = ref<number | null>(null)
 const contextMenuPos = ref({ x: 0, y: 0 })
 const renamingConvId = ref<number | null>(null)
 const renameText = ref('')
+const feedbackSubmitting = ref<Set<number>>(new Set())
 
 const AI_AVATAR_FILE = 'abaojie.png'
 const aiAvatarUrl = `${import.meta.env.BASE_URL}${AI_AVATAR_FILE}`
@@ -405,6 +406,21 @@ function formatTime(iso: string | null) {
   const h = String(d.getHours()).padStart(2, '0')
   const m = String(d.getMinutes()).padStart(2, '0')
   return `${h}:${m}`
+}
+
+async function submitFeedback(msgId: number, rating: 'like' | 'dislike') {
+  const msg = messages.value.find(m => m.id === msgId)
+  if (!msg || feedbackSubmitting.value.has(msgId)) return
+  const newRating = msg.rating === rating ? null : rating
+  feedbackSubmitting.value.add(msgId)
+  try {
+    if (newRating) {
+      await api.post(`/chat/messages/${msgId}/feedback`, { rating: newRating })
+    }
+    msg.rating = newRating
+  } catch { /* handled */ } finally {
+    feedbackSubmitting.value.delete(msgId)
+  }
 }
 
 function retrievalTitle(retrieval?: RetrievalInfo | null) {
@@ -823,6 +839,22 @@ onUnmounted(() => {
             <div class="msg-bubble" :class="msg.role">{{ msg.content }}</div>
             <!-- retrieval status card hidden from user view -->
             <div class="msg-time">{{ formatTime(msg.created_at) }}</div>
+            <div v-if="msg.role === 'assistant'" class="msg-feedback">
+              <button
+                class="feedback-btn"
+                :class="{ active: msg.rating === 'like' }"
+                :disabled="feedbackSubmitting.has(msg.id)"
+                @click="submitFeedback(msg.id, 'like')"
+                title="有帮助"
+              >👍</button>
+              <button
+                class="feedback-btn"
+                :class="{ active: msg.rating === 'dislike' }"
+                :disabled="feedbackSubmitting.has(msg.id)"
+                @click="submitFeedback(msg.id, 'dislike')"
+                title="没有帮助"
+              >👎</button>
+            </div>
           </div>
           <div v-if="msg.role === 'user'" class="msg-avatar user">
             <el-icon :size="14" color="white"><UserIcon /></el-icon>
@@ -1147,6 +1179,15 @@ onUnmounted(() => {
 .retrieval-meta { margin-top: 6px; font-size: 11px; color: #64748b; word-break: break-all; }
 .msg-time { font-size: 11px; color: #94a3b8; margin-top: 4px; padding: 0 4px; }
 .msg-row.user .msg-time { text-align: right; }
+.msg-feedback { display: flex; gap: 4px; margin-top: 6px; padding: 0 2px; }
+.feedback-btn {
+  background: none; border: 1px solid #e2e8f0; border-radius: 6px;
+  padding: 2px 8px; font-size: 14px; cursor: pointer; line-height: 1.6;
+  transition: background 0.15s, border-color 0.15s;
+}
+.feedback-btn:hover:not(:disabled) { background: #f1f5f9; border-color: #cbd5e1; }
+.feedback-btn.active { background: #eff6ff; border-color: #93c5fd; }
+.feedback-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .cursor { animation: blink 0.8s infinite; font-weight: 300; color: #2563eb; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
 

@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import os
+import socket
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -15,9 +17,13 @@ from app.core.database import async_session, engine
 from app.core.logging_config import setup_logging
 from app.core.redis import close_redis, init_redis
 from app.core.security import hash_password
+from app.core.trace import new_trace_id, set_trace_id
 from app.models import *  # noqa: F401,F403
 from app.services.analytics_rollup_runtime import start_analytics_rollup_worker, stop_analytics_rollup_worker
+from app.services.archive_worker_runtime import start_archive_worker, stop_archive_worker
 from app.services.feishu_sync_runtime import start_feishu_sync_worker, stop_feishu_sync_worker
+from app.services.log_cleanup_runtime import start_log_cleanup_worker, stop_log_cleanup_worker
+from app.services.satisfaction_worker_runtime import start_satisfaction_worker, stop_satisfaction_worker
 from app.services.knowledge_config_service import (
     build_effective_knowledge_config,
     load_knowledge_config_map,
@@ -81,6 +87,7 @@ async def _seed_db() -> None:
                 "knowledge_min_score": "0.35",
                 "knowledge_embedding_provider": settings.KNOWLEDGE_EMBEDDING_PROVIDER,
                 "knowledge_embedding_model": settings.KNOWLEDGE_EMBEDDING_MODEL,
+                "stream_timeout": "30",
             }
             for key, value in ai_defaults.items():
                 row = (await session.execute(select(AiConfig).where(AiConfig.config_key == key))).scalar_one_or_none()
@@ -98,7 +105,7 @@ async def _seed_db() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("========== 应用启动 ==========")
+    logger.info("========== 应用启动 ========== pid=%d host=%s", os.getpid(), socket.gethostname())
     redis_conn = await init_redis()
     if redis_conn:
         logger.info("Redis connected")
@@ -108,6 +115,9 @@ async def lifespan(app: FastAPI):
     await _seed_db()
     await start_feishu_sync_worker()
     await start_analytics_rollup_worker()
+    await start_archive_worker()
+    await start_log_cleanup_worker()
+    await start_satisfaction_worker()
     logger.info(
         "Analytics rollup worker configured | refresh_minutes=%s recent_days=%s",
         settings.ANALYTICS_ROLLUP_REFRESH_MINUTES,
@@ -131,11 +141,15 @@ async def lifespan(app: FastAPI):
     logger.info("========== 应用就绪 ==========")
     yield
     logger.info("========== 应用关闭 ==========")
+    await stop_log_cleanup_worker()
     await stop_analytics_rollup_worker()
+    await stop_archive_worker()
     await stop_feishu_sync_worker()
+    await stop_satisfaction_worker()
     await close_redis()
-    await engine.dispose()
     logger.info("Redis 连接已关闭")
+    await engine.dispose()
+    logger.info("MySQL 连接已关闭")
 
 
 app = FastAPI(
@@ -170,21 +184,39 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 @app.middleware("http")
-async def request_logging_middleware(request: Request, call_next):
+async def trace_and_log_middleware(request: Request, call_next):
+    tid = request.headers.get("X-Trace-Id") or new_trace_id()
+    set_trace_id(tid)
+
     start = time.time()
     method = request.method
     path = request.url.path
     skip_log = path in ("/api/health",) or path.startswith("/docs") or path.startswith("/openapi")
+
+    client_ip = (request.headers.get("X-Forwarded-For") or "").split(",", 1)[0].strip() or (request.client.host if request.client else "unknown")
+    ua = request.headers.get("User-Agent", "-")
+
     if not skip_log:
-        logger.info(">>> %s %s", method, path)
+        logger.info(">>> %s %s | ip=%s ua=%.80s", method, path, client_ip, ua)
+
     try:
         response = await call_next(request)
     except Exception as exc:
         logger.exception("!!! %s %s middleware error: %s", method, path, exc)
         raise
+
     elapsed = round((time.time() - start) * 1000, 1)
+    status = response.status_code
+
     if not skip_log:
-        logger.info("<<< %s %s | %s | %sms", method, path, response.status_code, elapsed)
+        if status >= 500:
+            logger.error("<<< %s %s | %s | %sms", method, path, status, elapsed)
+        elif status >= 400:
+            logger.warning("<<< %s %s | %s | %sms", method, path, status, elapsed)
+        else:
+            logger.info("<<< %s %s | %s | %sms", method, path, status, elapsed)
+
+    response.headers["X-Trace-Id"] = tid
     return response
 
 

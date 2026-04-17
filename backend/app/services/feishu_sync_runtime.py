@@ -399,6 +399,8 @@ async def _sync_conversation_record(job: dict[str, Any]) -> None:
             await redis.set(done_key, str(record_id or "1"), ex=DONE_TTL_SECONDS)
         user_msg.feishu_synced = 1
         assistant_msg.feishu_synced = 1
+        if record_id:
+            assistant_msg.feishu_record_id = record_id
         await db.commit()
         logger.info(
             "[Feishu Sync] completed | conv_id=%s user_msg_id=%s ai_msg_id=%s record_id=%s",
