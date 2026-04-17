@@ -19,6 +19,7 @@ _PROVIDER_ALIASES = {
     "gemini": "gemini",
     "zhipu": "zhipu",
     "glm": "zhipu",
+    "local": "local",
 }
 
 _PROVIDER_ENDPOINT_SUFFIXES = {
@@ -62,8 +63,10 @@ def _normalize_api_base(provider: str, api_url: str | None) -> str | None:
     return urlunsplit((parts.scheme, parts.netloc, path, "", ""))
 
 
-async def _load_embedding_provider(db: AsyncSession, provider_name: str | None) -> LlmProvider:
+async def _load_embedding_provider(db: AsyncSession, provider_name: str | None) -> LlmProvider | None:
     provider_key = _normalize_provider(provider_name or "")
+    if provider_key == "local":
+        return None
     if provider_key not in {"openai", "zhipu", "gemini"}:
         raise RuntimeError(f"不支持的 embedding 厂商: {provider_name or ''}")
 
@@ -87,6 +90,23 @@ async def _embed_openai(provider: LlmProvider, model: str, texts: Sequence[str])
     )
     response = await client.embeddings.create(model=model, input=list(texts))
     return [item.embedding for item in response.data]
+
+
+_LOCAL_EF = None
+
+def _get_local_ef():
+    global _LOCAL_EF
+    if _LOCAL_EF is None:
+        from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+        _LOCAL_EF = SentenceTransformerEmbeddingFunction(
+            model_name="paraphrase-multilingual-MiniLM-L12-v2"
+        )
+    return _LOCAL_EF
+
+
+def _embed_local(texts: Sequence[str]) -> list[list[float]]:
+    ef = _get_local_ef()
+    return [list(v) for v in ef(list(texts))]
 
 
 async def _embed_google(provider: LlmProvider, model: str, texts: Sequence[str]) -> list[list[float]]:
@@ -124,6 +144,17 @@ async def embed_texts(
     clean_texts = [text.strip() for text in texts if text and text.strip()]
     if not clean_texts:
         return []
+    provider_key = _normalize_provider(provider_name or "")
+    if provider_key == "local":
+        if runtime_meta is not None:
+            runtime_meta["provider"] = "local"
+            runtime_meta["model"] = "paraphrase-multilingual-MiniLM-L12-v2"
+            runtime_meta["base_url"] = ""
+        logger.info("[知识库] 开始 embedding | provider=local model=paraphrase-multilingual-MiniLM-L12-v2 count=%s", len(clean_texts))
+        try:
+            return _embed_local(clean_texts)
+        except Exception as exc:
+            raise RuntimeError(f"Embedding 调用失败(provider=local): {exc}") from exc
     provider = await _load_embedding_provider(db, provider_name)
     provider_key = _normalize_provider(provider.provider)
     model = (model_name or "").strip() or _DEFAULT_EMBEDDING_MODELS[provider_key]

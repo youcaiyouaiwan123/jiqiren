@@ -311,6 +311,40 @@ async def _load_history(db: AsyncSession, conversation_id: int, limit: int = 20)
     ]
 
 
+async def _rewrite_query(message: str, provider: LlmProvider) -> str:
+    """用 LLM 对用户问题做纠错+规范化，提升知识库检索命中率。"""
+    from openai import AsyncOpenAI
+    base_url = _normalize_api_base(_normalize_provider(provider.provider), provider.api_url)
+    client = AsyncOpenAI(
+        api_key=provider.api_key,
+        **({"base_url": base_url} if base_url else {}),
+    )
+    try:
+        resp = await client.chat.completions.create(
+            model=provider.model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "你是一个问题规范化助手。将用户的问题改写为标准、简洁的中文表达，"
+                        "修正错别字和错误英文拼写，保留核心意图，去除语气词。"
+                        "只输出改写后的问题，不要解释，不要加标点符号之外的内容。"
+                    ),
+                },
+                {"role": "user", "content": message},
+            ],
+            temperature=0,
+            max_tokens=100,
+        )
+        rewritten = resp.choices[0].message.content.strip()
+        if rewritten and rewritten != message:
+            logger.info("[知识库] 查询改写 | original=%r rewritten=%r", message, rewritten)
+        return rewritten or message
+    except Exception as exc:
+        logger.warning("[知识库] 查询改写失败，使用原始问题 | error=%s", exc)
+        return message
+
+
 async def _retrieve_knowledge_docs(
     message: str,
     ai_cfg: dict[str, str],
@@ -339,8 +373,12 @@ async def _retrieve_knowledge_docs(
         "message": "未命中知识库",
     }
 
+    # 查询改写：纠错 + 规范化，提升模糊/错别字的命中率
+    providers = await _load_active_providers(db)
+    query = await _rewrite_query(message, providers[0]) if providers else message
+
     try:
-        vectors = await embed_texts(db, [message], provider_name=provider_name, model_name=model_name, runtime_meta=embedding_meta)
+        vectors = await embed_texts(db, [query], provider_name=provider_name, model_name=model_name, runtime_meta=embedding_meta)
         retrieval_state["provider"] = embedding_meta.get("provider") or retrieval_state["provider"]
         retrieval_state["model"] = embedding_meta.get("model") or retrieval_state["model"]
         retrieval_state["base_url"] = embedding_meta.get("base_url") or ""
@@ -354,7 +392,7 @@ async def _retrieve_knowledge_docs(
         retrieval_state["error"] = _short_error_text(exc)
         retrieval_state["message"] = "知识库检索失败，本次回答未参考知识库"
         logger.exception("[知识库] 检索失败 | provider=%s model=%s", provider_name, model_name or "default")
-        fallback_hits = _fallback_keyword_matches(message, runtime_cfg["vault_path"], top_k=top_k, min_score=min_score)
+        fallback_hits = _fallback_keyword_matches(query, runtime_cfg["vault_path"], top_k=top_k, min_score=min_score)
         if not fallback_hits:
             return "", [], retrieval_state
         matches = fallback_hits
@@ -365,7 +403,7 @@ async def _retrieve_knowledge_docs(
 
     hits = [item for item in matches if item.get("score", 0) >= min_score]
     if not hits:
-        fallback_hits = _fallback_keyword_matches(message, runtime_cfg["vault_path"], top_k=top_k, min_score=min_score)
+        fallback_hits = _fallback_keyword_matches(query, runtime_cfg["vault_path"], top_k=top_k, min_score=min_score)
         if not fallback_hits:
             retrieval_state["status"] = "miss"
             retrieval_state["message"] = "本次未命中知识库，当前回答主要基于通用模型"

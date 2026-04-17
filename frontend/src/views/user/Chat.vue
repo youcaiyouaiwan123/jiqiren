@@ -821,13 +821,6 @@ onUnmounted(() => {
               <img v-for="(img, imgIdx) in msg.images" :key="imgIdx" :src="img.url" class="msg-img" @click="previewImage(img.url)" />
             </div>
             <div class="msg-bubble" :class="msg.role">{{ msg.content }}</div>
-            <div v-if="msg.role === 'assistant' && msg.docs?.length" class="doc-list">
-              <div v-for="(doc, index) in msg.docs" :key="`${msg.id}-${index}-${doc.source}`" class="doc-card">
-                <div class="doc-title">参考 {{ index + 1 }} · {{ doc.title }}</div>
-                <div class="doc-source">{{ doc.source }}</div>
-                <div v-if="doc.snippet" class="doc-snippet">{{ doc.snippet }}</div>
-              </div>
-            </div>
             <!-- retrieval status card hidden from user view -->
             <div class="msg-time">{{ formatTime(msg.created_at) }}</div>
           </div>

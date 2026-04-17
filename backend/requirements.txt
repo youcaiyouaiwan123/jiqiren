@@ -5,13 +5,14 @@ aiomysql==0.2.0
 redis[hiredis]==6.2.0
 python-jose[cryptography]==3.4.0
 passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
 python-dotenv==1.1.0
 httpx==0.28.1
 python-multipart==0.0.20
 anthropic==0.52.0
 aliyun-python-sdk-core==2.16.0
 aliyun-python-sdk-dysmsapi==2.1.2
-tencentcloud-sdk-python-common==3.0.1325
+tencentcloud-sdk-python-common==3.0.1207
 tencentcloud-sdk-python-sms==3.0.1207
 openai>=1.40.0
 google-genai>=1.0.0
@@ -22,4 +23,5 @@ pydantic-settings==2.9.1
 chromadb==0.5.7
 PyYAML==6.0.2
 faster-whisper>=1.0.0
+sentence-transformers>=3.0.0
 alembic==1.18.3
