@@ -35,8 +35,8 @@ async function handleLogin() {
       <div class="login-brand">
         <div class="brand-content">
           <el-icon :size="48" color="rgba(255,255,255,0.85)"><Setting /></el-icon>
-          <h1 class="brand-title">管理后台</h1>
-          <p class="brand-desc">AI 智能客服管理系统</p>
+          <h1 class="brand-title">AI 课程答疑助手</h1>
+          <p class="brand-desc">管理后台</p>
         </div>
       </div>
       <div class="login-form-area">

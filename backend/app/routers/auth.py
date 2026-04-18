@@ -389,7 +389,7 @@ async def _send_sms(phone: str, code: str, cfg: dict) -> bool:
         return False
 
 
-def _send_email_code_sync(email: str, code: str, cfg: dict) -> None:
+def _send_email_code_sync(email: str, code: str, cfg: dict, subject: str = "注册验证码", body_text: str | None = None) -> None:
     smtp_host = cfg.get("smtp_host", "")
     smtp_port = int(cfg.get("smtp_port") or 465)
     smtp_user = cfg.get("smtp_user", "")
@@ -401,8 +401,8 @@ def _send_email_code_sync(email: str, code: str, cfg: dict) -> None:
     message = EmailMessage()
     message["From"] = from_addr
     message["To"] = email
-    message["Subject"] = "注册验证码"
-    message.set_content(f"您的验证码是：{code}，5 分钟内有效。")
+    message["Subject"] = subject
+    message.set_content(body_text or f"您的验证码是：{code}，5 分钟内有效。")
 
     if smtp_port == 465:
         with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ssl.create_default_context()) as server:
@@ -423,13 +423,13 @@ def _send_email_code_sync(email: str, code: str, cfg: dict) -> None:
         server.send_message(message)
 
 
-async def _send_email_code(email: str, code: str, cfg: dict) -> bool:
+async def _send_email_code(email: str, code: str, cfg: dict, subject: str = "注册验证码", body_text: str | None = None) -> bool:
     smtp_host = cfg.get("smtp_host", "")
     if not smtp_host:
         logger.warning("[EMAIL] 邮件服务未配置: email=%s", email)
         return False
     try:
-        await run_in_threadpool(_send_email_code_sync, email, code, cfg)
+        await run_in_threadpool(_send_email_code_sync, email, code, cfg, subject, body_text)
         logger.info("[EMAIL] SMTP=%s 已发送验证码到: %s", smtp_host, email)
         return True
     except Exception:
@@ -770,3 +770,118 @@ async def change_password(
     user.password_hash = hash_password(body.new_password)
     logger.info("[个人中心] 修改密码 | user_id=%s", user_id)
     return success({"message": "密码已修改，请重新登录"})
+
+
+# ── 密码重置（未登录） ────────────────────────────────────────────────────────────
+
+RESET_CODE_PREFIX = "reset_code:"
+RESET_CODE_TTL = 300
+RESET_CODE_COOLDOWN = 60
+
+
+def _reset_code_key(target_type: str, target: str) -> str:
+    return f"{RESET_CODE_PREFIX}{target_type}:{target}"
+
+
+def _reset_cooldown_key(target_type: str, target: str) -> str:
+    return f"{RESET_CODE_PREFIX}cd:{target_type}:{target}"
+
+
+class SendResetCodeBody(BaseModel):
+    target: str
+    type: str = "phone"
+
+
+class ResetPasswordBody(BaseModel):
+    phone: str | None = None
+    email: str | None = None
+    verify_code: str
+    new_password: str
+
+
+@router.post("/send-reset-code")
+async def send_reset_code(body: SendResetCodeBody, request: Request, db: AsyncSession = Depends(get_db)):
+    """发送密码重置验证码（要求账号已存在）"""
+    cfg = await _get_all_register_config(db)
+    if body.type not in SUPPORTED_VERIFY_TYPES:
+        return fail(1012, "验证码类型不支持")
+    target = _normalize_target(body.target, body.type)
+    if not target:
+        return fail(1001, "手机号或邮箱不能为空")
+    if body.type == "phone":
+        if not _is_valid_phone(target):
+            return fail(1013, "手机号格式不正确")
+        if not _sms_channel_available(cfg):
+            return fail(1017, _sms_channel_error_message(cfg))
+        user = (await db.execute(select(User).where(User.phone == target, User.deleted_at.is_(None)))).scalar_one_or_none()
+        if not user:
+            return fail(1004, "该手机号未注册")
+    else:
+        if not _is_valid_email(target):
+            return fail(1015, "邮箱格式不正确")
+        if not _email_channel_available(cfg):
+            return fail(1016, "邮件服务未配置")
+        user = (await db.execute(select(User).where(User.email == target, User.deleted_at.is_(None)))).scalar_one_or_none()
+        if not user:
+            return fail(1004, "该邮箱未注册")
+    redis = get_redis(required=False)
+    if redis is None:
+        return fail(5003, "验证码服务暂不可用，请稍后重试")
+    cooldown_key = _reset_cooldown_key(body.type, target)
+    if await redis.exists(cooldown_key):
+        ttl = await redis.ttl(cooldown_key)
+        return fail(1009, f"发送太频繁，请 {ttl} 秒后重试")
+    code = _generate_code()
+    if body.type == "email":
+        ok = await _send_email_code(target, code, cfg, subject="密码重置验证码",
+                                    body_text=f"您正在重置密码，验证码是：{code}，5 分钟内有效，请勿泄露。")
+    else:
+        ok = await _send_sms(target, code, cfg)
+    if not ok:
+        return fail(5002, "验证码发送失败，请稍后重试")
+    await redis.set(_reset_code_key(body.type, target), code, ex=RESET_CODE_TTL)
+    await redis.set(cooldown_key, "1", ex=RESET_CODE_COOLDOWN)
+    return success({"message": "验证码已发送", "expires_in": RESET_CODE_TTL})
+
+
+@router.post("/reset-password")
+async def reset_password(body: ResetPasswordBody, db: AsyncSession = Depends(get_db)):
+    """通过验证码重置密码（无需登录）"""
+    phone = _normalize_phone(body.phone)
+    email = _normalize_email(body.email)
+    verify_code = body.verify_code.strip()
+    if not phone and not email:
+        return fail(1001, "手机号和邮箱至少填一个")
+    if len(body.new_password) < 6:
+        return fail(1019, "密码长度不能少于 6 位")
+    if phone:
+        target_type, target = "phone", phone
+        user = (await db.execute(select(User).where(User.phone == phone, User.deleted_at.is_(None)))).scalar_one_or_none()
+    else:
+        target_type, target = "email", email or ""
+        user = (await db.execute(select(User).where(User.email == email, User.deleted_at.is_(None)))).scalar_one_or_none()
+    if not user:
+        return fail(1004, "账号不存在")
+    if not verify_code:
+        return fail(1010, "请输入验证码")
+    redis = get_redis(required=False)
+    if redis is None:
+        return fail(5003, "验证码服务暂不可用，请稍后重试")
+    code_key = _reset_code_key(target_type, target)
+    consume_result = await redis.eval(
+        """
+        local current = redis.call('GET', KEYS[1])
+        if not current then return 0 end
+        if current ~= ARGV[1] then return -1 end
+        redis.call('DEL', KEYS[1])
+        return 1
+        """,
+        1,
+        code_key,
+        verify_code,
+    )
+    if consume_result != 1:
+        return fail(1011, "验证码错误或已过期")
+    user.password_hash = hash_password(body.new_password)
+    logger.info("[重置密码] 成功 | user_id=%s", user.id)
+    return success({"message": "密码已重置，请重新登录"})
