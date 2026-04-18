@@ -183,6 +183,7 @@ async def create_conversation(
     conv = Conversation(user_id=user_id, title=body.title or "新对话")
     db.add(conv)
     await db.flush()
+    await db.refresh(conv)
     logger.info("[会话] 新建 | user_id=%s conv_id=%s", user_id, conv.id)
     return success({"id": conv.id, "title": conv.title, "created_at": conv.created_at.isoformat() if conv.created_at else None})
 

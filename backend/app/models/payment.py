@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, DECIMAL, Enum, ForeignKey, Index, String, func
+from sqlalchemy import BigInteger, DateTime, DECIMAL, Enum, ForeignKey, Index, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -30,4 +30,5 @@ class Payment(Base):
         Index("idx_pay_user", "user_id"),
         Index("idx_pay_order_no", "order_no"),
         Index("idx_pay_status_created", "status", "created_at"),
+        UniqueConstraint("order_no", name="uq_pay_order_no"),
     )

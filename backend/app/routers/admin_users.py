@@ -1,8 +1,10 @@
 """管理端：用户管理 + 订阅管理"""
+import io
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi.responses import StreamingResponse
 
 logger = logging.getLogger(__name__)
 from pydantic import BaseModel
@@ -51,6 +53,13 @@ class UpdateTrialBody(BaseModel):
 class UpdateStatusBody(BaseModel):
     status: str
     reason: str | None = None
+
+class BatchSubscribeBody(BaseModel):
+    user_ids: list[int]
+    mode: str           # "override" | "add_days"
+    subscribe_plan: str | None = None   # override 模式
+    subscribe_expire: str | None = None  # override 模式
+    add_days: int | None = None          # add_days 模式
 
 def _normalize_phone(phone: str | None) -> str | None:
     if phone is None:
@@ -205,10 +214,10 @@ async def list_users(
         if keyword:
             stmt = stmt.where(
                 or_(
-                    User.nickname.contains(keyword),
-                    User.phone.contains(keyword),
-                    User.email.contains(keyword),
-                    User.remark.contains(keyword),
+                    User.nickname.contains(keyword, autoescape=True),
+                    User.phone.contains(keyword, autoescape=True),
+                    User.email.contains(keyword, autoescape=True),
+                    User.remark.contains(keyword, autoescape=True),
                 )
             )
         if status == "deleted":
@@ -261,6 +270,284 @@ async def list_users(
     ]
     return success(paginate(items, total, pager.page, pager.page_size))
 
+
+# ── 批量路由（必须在 /{user_id} 参数路由之前注册，否则 FastAPI 会将路径段误作 user_id） ──
+
+@router.get("/import-template")
+async def download_import_template(admin: dict = Depends(get_current_admin)):
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill
+    except ImportError:
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"code": 5001, "message": "服务端缺少 openpyxl 依赖，请联系管理员安装"})
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "用户导入"
+
+    headers = ["手机号", "邮箱", "密码", "昵称", "会员计划", "到期时间", "试用次数", "备注"]
+    ws.append(headers)
+
+    header_font = Font(bold=True)
+    header_fill = PatternFill(fill_type="solid", fgColor="D9E1F2")
+    for col_idx, _ in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.font = header_font
+        cell.fill = header_fill
+
+    # 示例行
+    ws.append(["13800138000", "", "password123", "张三", "free", "", 3, "示例账号"])
+    # 说明行
+    ws.append(["", "", "", "", "free / monthly / yearly", "2026-12-31 00:00:00", "留空则取系统默认", "最多200字"])
+
+    # 列宽
+    col_widths = [16, 26, 16, 14, 22, 24, 12, 24]
+    for i, w in enumerate(col_widths, start=1):
+        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename*=UTF-8''user_import_template.xlsx"},
+    )
+
+
+@router.post("/import")
+async def import_users(
+    file: UploadFile = File(...),
+    admin: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        import openpyxl
+    except ImportError:
+        return fail(5001, "服务端缺少 openpyxl 依赖，请联系管理员安装")
+
+    fname = file.filename or ""
+    if not fname.lower().endswith(".xlsx"):
+        return fail(1001, "请上传 .xlsx 格式的 Excel 文件")
+
+    content = await file.read()
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
+    except Exception:
+        return fail(1001, "文件解析失败，请使用系统提供的 Excel 模板")
+
+    ws = wb.active
+    raw_rows = list(ws.iter_rows(min_row=2, values_only=True))
+
+    if not raw_rows:
+        return fail(1001, "文件中没有数据行")
+    if len(raw_rows) > 1000:
+        return fail(1001, "单次最多导入 1000 行")
+
+    default_free_chats = await _get_default_free_chats(db)
+
+    def _cell(row, i: int) -> str:
+        v = row[i] if i < len(row) else None
+        if v is None:
+            return ""
+        # Excel 数字型手机号会被读成 float，如 13800138000.0
+        if isinstance(v, float) and v == int(v):
+            return str(int(v))
+        return str(v).strip()
+
+    results: list[dict] = []
+    valid_rows: list[dict] = []
+    in_batch_phones: set[str] = set()
+    in_batch_emails: set[str] = set()
+
+    # Pass 1 — 格式校验
+    for row_idx, row in enumerate(raw_rows, start=2):
+        phone_raw  = _cell(row, 0)
+        email_raw  = _cell(row, 1)
+        pwd_raw    = _cell(row, 2)
+        nick_raw   = _cell(row, 3)
+        plan_raw   = _cell(row, 4) or "free"
+        expire_raw = _cell(row, 5)
+        trial_raw  = _cell(row, 6)
+        remark_raw = _cell(row, 7)
+
+        if not any([phone_raw, email_raw, pwd_raw]):
+            continue  # 整行空白，静默跳过
+
+        phone = _normalize_phone(phone_raw or None)
+        email = _normalize_email(email_raw or None)
+
+        def _fail(msg: str):
+            results.append({"row": row_idx, "status": "fail",
+                            "phone": phone_raw, "email": email_raw, "message": msg})
+
+        if not phone and not email:
+            _fail("手机号和邮箱不能同时为空"); continue
+        if len(pwd_raw) < 6:
+            _fail("密码长度不能少于 6 位"); continue
+
+        plan = plan_raw.strip().lower()
+        if plan not in VALID_SUBSCRIBE_PLANS:
+            _fail(f"会员计划 '{plan_raw}' 不支持，请填写 free/monthly/yearly"); continue
+
+        if phone and phone in in_batch_phones:
+            _fail(f"本批次中手机号 {phone} 重复"); continue
+        if email and email in in_batch_emails:
+            _fail(f"本批次中邮箱 {email} 重复"); continue
+
+        subscribe_expire, expire_error = _parse_datetime_or_none(expire_raw or None)
+        if expire_error:
+            _fail("到期时间格式错误，请使用 YYYY-MM-DD HH:mm:ss"); continue
+
+        try:
+            free_chats_left = max(int(float(trial_raw)) if trial_raw else default_free_chats, 0)
+        except (ValueError, TypeError):
+            free_chats_left = default_free_chats
+
+        nickname = _normalize_text(nick_raw or None, 50)
+        remark   = _normalize_text(remark_raw or None, 200)
+        seed = phone or email or str(int(datetime.now().timestamp()))
+        if "@" in seed:
+            seed = seed.split("@", 1)[0]
+        nickname = nickname or f"用户{seed[-4:]}"
+
+        if phone: in_batch_phones.add(phone)
+        if email: in_batch_emails.add(email)
+
+        valid_rows.append({
+            "row": row_idx,
+            "phone": phone,       "phone_raw": phone_raw,
+            "email": email,       "email_raw": email_raw,
+            "password": pwd_raw,
+            "nickname": nickname, "remark": remark,
+            "plan": plan,         "subscribe_expire": subscribe_expire,
+            "free_chats_left": free_chats_left,
+        })
+
+    # Pass 2 — 数据库唯一性批量检查
+    all_phones = {r["phone"] for r in valid_rows if r["phone"]}
+    all_emails = {r["email"] for r in valid_rows if r["email"]}
+
+    existing_phones: set[str] = set()
+    existing_emails: set[str] = set()
+    if all_phones:
+        existing_phones = set(
+            (await db.execute(
+                select(User.phone).where(User.phone.in_(all_phones), User.deleted_at.is_(None))
+            )).scalars().all()
+        )
+    if all_emails:
+        existing_emails = set(
+            (await db.execute(
+                select(User.email).where(User.email.in_(all_emails), User.deleted_at.is_(None))
+            )).scalars().all()
+        )
+
+    # Pass 3 — 写入
+    success_count = 0
+    fail_count = len(results)
+
+    for row_data in valid_rows:
+        phone = row_data["phone"]
+        email = row_data["email"]
+
+        if (phone and phone in existing_phones) or (email and email in existing_emails):
+            results.append({
+                "row": row_data["row"], "status": "fail",
+                "phone": row_data["phone_raw"], "email": row_data["email_raw"],
+                "message": "手机号或邮箱已注册",
+            })
+            fail_count += 1
+            continue
+
+        user = User(
+            phone=phone, email=email,
+            password_hash=hash_password(row_data["password"]),
+            nickname=row_data["nickname"],
+            remark=row_data["remark"],
+            free_chats_left=row_data["free_chats_left"],
+            subscribe_plan=row_data["plan"],
+            subscribe_expire=None if row_data["plan"] == "free" else row_data["subscribe_expire"],
+            status="active",
+        )
+        db.add(user)
+        await db.flush()
+
+        results.append({
+            "row": row_data["row"], "status": "ok",
+            "phone": row_data["phone_raw"], "email": row_data["email_raw"],
+            "message": "导入成功",
+        })
+        success_count += 1
+
+    results.sort(key=lambda r: r["row"])
+
+    logger.info("[管理端-用户] 批量导入 | admin_id=%s success=%s fail=%s",
+                admin["admin_id"], success_count, fail_count)
+
+    return success({
+        "total": len(results),
+        "success": success_count,
+        "failed": fail_count,
+        "results": results,
+    }, f"导入完成：成功 {success_count} 条，失败 {fail_count} 条")
+
+
+@router.put("/batch-subscribe")
+async def batch_subscribe(
+    body: BatchSubscribeBody,
+    admin: dict = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    if not body.user_ids:
+        return fail(1001, "请选择至少一名用户")
+    if len(body.user_ids) > 500:
+        return fail(1001, "单次最多批量处理 500 名用户")
+
+    mode = (body.mode or "").strip().lower()
+    if mode not in {"override", "add_days"}:
+        return fail(1001, "不支持的操作模式")
+
+    if mode == "override":
+        plan = (body.subscribe_plan or "").strip().lower()
+        if plan not in VALID_SUBSCRIBE_PLANS:
+            return fail(1001, "订阅计划不支持")
+        subscribe_expire, expire_error = _parse_datetime_or_none(body.subscribe_expire)
+        if expire_error:
+            return fail(1005, expire_error)
+    else:
+        add_days = body.add_days
+        if add_days is None or add_days <= 0:
+            return fail(1001, "追加天数必须大于 0")
+
+    users = (
+        await db.execute(
+            select(User).where(User.id.in_(body.user_ids), User.deleted_at.is_(None))
+        )
+    ).scalars().all()
+
+    if not users:
+        return fail(1004, "所选用户不存在或已注销")
+
+    now = datetime.now()
+    for user in users:
+        if mode == "override":
+            user.subscribe_plan = plan
+            user.subscribe_expire = None if plan == "free" else subscribe_expire
+        else:
+            base = user.subscribe_expire if (user.subscribe_expire and user.subscribe_expire > now) else now
+            user.subscribe_expire = base + timedelta(days=add_days)
+            if user.subscribe_plan == "free":
+                user.subscribe_plan = "monthly"
+
+    logger.info("[管理端-用户] 批量授权 | admin_id=%s mode=%s count=%s",
+                admin["admin_id"], mode, len(users))
+    return success({"updated": len(users)}, f"已更新 {len(users)} 名用户")
+
+
+# ── 单条 CRUD（参数路由，注册在批量路由之后） ─────────────────────────────────────
 
 @router.put("/{user_id}")
 async def update_user(

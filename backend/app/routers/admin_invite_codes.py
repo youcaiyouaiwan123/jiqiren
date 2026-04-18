@@ -65,7 +65,7 @@ async def list_invite_codes(
     now = datetime.now()
     stmt = select(InviteCode)
     if keyword:
-        stmt = stmt.where(InviteCode.code.like(f"%{_normalize_invite_code(keyword)}%"))
+        stmt = stmt.where(InviteCode.code.contains(_normalize_invite_code(keyword), autoescape=True))
     if status == "expired":
         stmt = stmt.where(
             or_(

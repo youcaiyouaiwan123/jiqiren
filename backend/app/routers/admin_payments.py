@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -66,10 +66,10 @@ async def list_payments(
     if keyword:
         filters.append(
             or_(
-                Payment.order_no.contains(keyword),
-                User.nickname.contains(keyword),
-                User.phone.contains(keyword),
-                User.email.contains(keyword),
+                Payment.order_no.contains(keyword, autoescape=True),
+                User.nickname.contains(keyword, autoescape=True),
+                User.phone.contains(keyword, autoescape=True),
+                User.email.contains(keyword, autoescape=True),
             )
         )
 
@@ -95,22 +95,30 @@ async def approve_payment(
     admin: dict = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    payment = await db.get(Payment, payment_id)
-    if not payment or payment.type != "subscribe":
+    payment = (
+        await db.execute(
+            select(Payment)
+            .where(Payment.id == payment_id, Payment.type == "subscribe")
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if not payment:
         return fail(1004, "订单不存在")
     if payment.status == "success":
         return fail(1001, "订单已处理")
     if not payment.plan_id:
         return fail(1001, "订单缺少套餐信息")
 
-    user = await db.get(User, payment.user_id)
+    user = (
+        await db.execute(select(User).where(User.id == payment.user_id).with_for_update())
+    ).scalar_one_or_none()
     plan = await db.get(Plan, payment.plan_id)
     if not user or not plan:
         return fail(1004, "订单关联数据不存在")
 
     apply_subscription_for_payment(user=user, plan=plan, now=datetime.now(timezone.utc))
     payment.status = "success"
-    payment.paid_at = datetime.utcnow()
+    payment.paid_at = datetime.now(timezone.utc)
     payment.remark = (body.remark or "").strip() or payment.remark
     await db.flush()
 

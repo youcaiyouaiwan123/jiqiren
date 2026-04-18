@@ -15,7 +15,7 @@ from app.models.user import User
 
 
 def create_order_no() -> str:
-    return f"SUB{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}{uuid4().hex[:8].upper()}"
+    return f"SUB{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}{uuid4().hex[:16].upper()}"
 
 
 def resolve_checkout_url(template: str | None, *, payment: Payment, plan: Plan) -> str:

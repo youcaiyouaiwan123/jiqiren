@@ -32,8 +32,10 @@ def _apply_direct_filters(stmt, start_dt, end_dt, keyword, model):
     if model:
         stmt = stmt.where(TokenUsage.model == model)
     if keyword:
-        like = f"%{keyword}%"
-        stmt = stmt.where(User.nickname.like(like) | User.phone.like(like))
+        stmt = stmt.where(
+            User.nickname.contains(keyword, autoescape=True)
+            | User.phone.contains(keyword, autoescape=True)
+        )
     return stmt
 
 

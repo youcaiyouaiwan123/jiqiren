@@ -39,6 +39,16 @@ class Settings(BaseSettings):
     TOKEN_USAGE_ARCHIVE_AFTER_DAYS: int = 180
     CONVERSATION_ARCHIVE_AFTER_DAYS: int = 365
 
+    # Cold/hot archiving
+    ARCHIVE_ENABLED: bool = False          # 显式开启后才执行归档，避免误操作
+    ARCHIVE_INTERVAL_HOURS: int = 24       # 归档周期（小时），建议低峰期触发
+    ARCHIVE_BATCH_SIZE: int = 500          # 每批迁移行数，越小对主库压力越低
+
+    # 日志
+    LOG_LEVEL: str = "DEBUG"
+    LOG_KEEP_DAYS: int = 7
+    WECOM_ALERT_WEBHOOK: str = ""
+
     # 飞书
     FEISHU_APP_ID: str = ""
     FEISHU_APP_SECRET: str = ""

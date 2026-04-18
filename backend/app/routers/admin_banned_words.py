@@ -40,7 +40,7 @@ async def list_banned_words(
 ):
     filters = []
     if keyword:
-        filters.append(BannedWord.word.contains(keyword))
+        filters.append(BannedWord.word.contains(keyword, autoescape=True))
     return await generic_list(db, BannedWord, page=pager.page, page_size=pager.page_size, filters=filters)
 
 

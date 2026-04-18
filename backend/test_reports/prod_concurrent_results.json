@@ -1,0 +1,137 @@
+{
+  "generated_at": "2026-04-18 23:38:28",
+  "app": "http://172.18.0.4:8015",
+  "db": "MySQL 8.0.45 InnoDB REPEATABLE-READ",
+  "results": [
+    {
+      "name": "兑换码并发双花防护",
+      "concurrency": 10,
+      "elapsed_ms": 46,
+      "success": 1,
+      "rejected_1004": 9,
+      "errors": 0,
+      "db_code_status": "used",
+      "db_used_by": 112,
+      "users_got_chats": [
+        [
+          112,
+          5
+        ]
+      ],
+      "pass": true,
+      "details": [
+        {
+          "user_id": 112,
+          "code": 0
+        },
+        {
+          "user_id": 113,
+          "code": 1004
+        },
+        {
+          "user_id": 114,
+          "code": 1004
+        },
+        {
+          "user_id": 115,
+          "code": 1004
+        },
+        {
+          "user_id": 116,
+          "code": 1004
+        },
+        {
+          "user_id": 117,
+          "code": 1004
+        },
+        {
+          "user_id": 118,
+          "code": 1004
+        },
+        {
+          "user_id": 119,
+          "code": 1004
+        },
+        {
+          "user_id": 120,
+          "code": 1004
+        },
+        {
+          "user_id": 121,
+          "code": 1004
+        }
+      ]
+    },
+    {
+      "name": "同一用户并发兑换同一码",
+      "concurrency": 5,
+      "elapsed_ms": 31,
+      "success": 1,
+      "rejected_1004": 4,
+      "errors": 0,
+      "db_code_status": "used",
+      "user_free_chats": 10,
+      "pass": true,
+      "details": [
+        0,
+        1004,
+        1004,
+        1004,
+        1004
+      ]
+    },
+    {
+      "name": "配额并发扣减防超额",
+      "concurrency": 5,
+      "initial_quota": 3,
+      "elapsed_ms": 3094,
+      "response_codes": [
+        "SSE",
+        "SSE",
+        2001,
+        "SSE",
+        2001
+      ],
+      "sse_success": 3,
+      "quota_exhausted_2001": 2,
+      "final_free_chats": 0,
+      "pass": true,
+      "note": "SSE=发送进入AI流程，2001=配额不足被拦截，final_chats>=0即合格"
+    },
+    {
+      "name": "接口延迟基准（生产MySQL）",
+      "latency": {
+        "health": {
+          "avg": 1.0294779882921528,
+          "min": 0.906067987671122,
+          "max": 1.2064019974786788,
+          "n": 10,
+          "threshold_ms": 50,
+          "note": "去除最高值后均值"
+        },
+        "login": {
+          "avg": 253.49737766858502,
+          "min": 231.7423259955831,
+          "max": 276.08827099902555,
+          "n": 3,
+          "threshold_ms": 1000,
+          "note": "bcrypt成本12，生产实测阈值放宽至1s"
+        },
+        "conversations": {
+          "avg": 8.00039900932461,
+          "min": 6.973611016292125,
+          "max": 8.714730007341132,
+          "n": 5,
+          "threshold_ms": 200
+        }
+      },
+      "pass": true
+    },
+    {
+      "name": "幂等性重复删除",
+      "first_delete_code": 0,
+      "second_delete_code": 1004,
+      "pass": true
+    }
+  ]
+}

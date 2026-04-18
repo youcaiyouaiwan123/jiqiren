@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+*.log
+
+# 测试原始数据（体积过大）
+test_reports/results.json
+test_reports/*.zip

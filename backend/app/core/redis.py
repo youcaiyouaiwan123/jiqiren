@@ -10,6 +10,18 @@ settings = get_settings()
 
 redis_client: aioredis.Redis | None = None
 
+# Lua: INCR + EXPIRE 原子执行，仅在 key 首次创建时设置 TTL，避免进程崩溃后 key 永不过期
+_LUA_INCR_WITH_TTL = (
+    "local n = redis.call('INCR', KEYS[1])\n"
+    "if n == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end\n"
+    "return n"
+)
+
+
+async def atomic_incr(client: aioredis.Redis, key: str, ttl: int) -> int:
+    """原子地递增计数器并在首次创建时设置 TTL。"""
+    return int(await client.eval(_LUA_INCR_WITH_TTL, 1, key, str(ttl)))
+
 
 async def init_redis() -> aioredis.Redis | None:
     global redis_client

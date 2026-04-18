@@ -2,22 +2,26 @@
 import uuid
 from typing import Any
 
+from app.core.trace import get_trace_id
+
 
 def success(data: Any = None, message: str = "ok") -> dict:
+    _tid = get_trace_id()
     return {
         "code": 0,
         "message": message,
         "data": data,
-        "request_id": str(uuid.uuid4()),
+        "request_id": _tid if _tid != "-" else str(uuid.uuid4()),
     }
 
 
 def fail(code: int = 1001, message: str = "请求失败", data: Any = None) -> dict:
+    _tid = get_trace_id()
     return {
         "code": code,
         "message": message,
         "data": data,
-        "request_id": str(uuid.uuid4()),
+        "request_id": _tid if _tid != "-" else str(uuid.uuid4()),
     }
 
 

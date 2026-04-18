@@ -10,7 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_admin
+from app.core.redis import get_redis
 from app.models.ai_config import AiConfig
+from app.services.ai_service import _AI_CONFIG_CACHE_KEY
 from app.utils.crud import row_to_dict
 from app.utils.response import fail, success
 
@@ -54,5 +56,8 @@ async def update_ai_config(key: str, body: AiConfigBody, admin: dict = Depends(g
         row.updated_by = admin["admin_id"]
     await db.flush()
     await db.refresh(row)
+    redis = get_redis(required=False)
+    if redis:
+        await redis.delete(_AI_CONFIG_CACHE_KEY)
     logger.info("[AI配置] 更新成功 | admin_id=%s key=%s value=%s", admin["admin_id"], key, body.value)
     return success(row_to_dict(row))
