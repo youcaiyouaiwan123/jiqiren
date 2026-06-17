@@ -11,17 +11,24 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 #  - ffmpeg：faster-whisper 解码音频
 #  - curl：容器内健康检查
 #  - dos2unix：修正 Windows 上提交的 CRLF 脚本
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN sed -i 's|http://deb.debian.org|http://mirrors.aliyun.com|g; s|http://security.debian.org|http://mirrors.aliyun.com/debian-security|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends \
         ffmpeg \
         curl \
         dos2unix \
     && rm -rf /var/lib/apt/lists/*
 
+RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ \
+    && pip config set install.trusted-host mirrors.aliyun.com
+
 WORKDIR /app
 
 # 先装依赖（利用 docker cache）
 COPY requirements.txt /app/requirements.txt
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# 先从 PyTorch 官方 CPU 索引装 CPU 版 torch，避免拉 3GB+ 的 CUDA 包
+RUN pip install --upgrade pip \
+    && pip install --index-url https://download.pytorch.org/whl/cpu torch==2.5.1 \
+    && pip install -r requirements.txt
 
 # 再拷贝项目代码
 COPY . /app
