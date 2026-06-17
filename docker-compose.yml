@@ -87,6 +87,8 @@ services:
       KNOWLEDGE_GIT_BRANCH: ${KNOWLEDGE_GIT_BRANCH:-main}
       # --- 时区 ---
       TZ: Asia/Shanghai
+      # --- HuggingFace 国内镜像，避免下模型超时 ---
+      HF_ENDPOINT: https://hf-mirror.com
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/logs:/app/logs
