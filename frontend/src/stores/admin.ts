@@ -7,8 +7,8 @@ export const useAdminStore = defineStore('admin', () => {
   const token = ref(localStorage.getItem('admin_token') || '')
   const admin = ref<{ id: number; username: string; role: string } | null>(null)
 
-  async function login(username: string, password: string) {
-    const res = await api.post('/admin/login', { username, password })
+  async function login(username: string, password: string, captcha_id: string, slide_x: number) {
+    const res = await api.post('/admin/login', { username, password, captcha_id, slide_x })
     const data = res.data as AdminLoginResult
     token.value = data.access_token
     admin.value = data.admin

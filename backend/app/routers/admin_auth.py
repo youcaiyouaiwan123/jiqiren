@@ -13,6 +13,7 @@ from app.core.deps import BizException, get_current_admin
 from app.core.redis import get_redis, atomic_incr
 from app.core.security import create_access_token, create_refresh_token, decode_token, hash_password, verify_password
 from app.models.admin import Admin
+from app.services import slide_captcha_service
 from app.utils.response import fail, success
 
 logger = logging.getLogger(__name__)
@@ -75,6 +76,8 @@ def _validate_password_strength(password: str) -> str | None:
 class AdminLoginBody(BaseModel):
     username: str
     password: str
+    captcha_id: str | None = None
+    slide_x: int | None = None
 
 
 class ChangePasswordBody(BaseModel):
@@ -99,6 +102,13 @@ async def admin_login(body: AdminLoginBody, request: Request, db: AsyncSession =
             ttl = max(await redis.ttl(ip_key), 1)
             logger.warning("[管理登录] IP 超频被拦截 | ip=%s count=%s", ip, ip_count)
             return fail(1029, f"当前 IP 请求过于频繁，请 {ttl // 60 + 1} 分钟后重试")
+
+    # ── 滑块验证码 ──
+    if not body.captcha_id or body.slide_x is None:
+        return fail(1040, "请先完成滑块验证")
+    if not await slide_captcha_service.verify(body.captcha_id, body.slide_x):
+        logger.warning("[管理登录] 验证码失败 | username=%s ip=%s", username, ip)
+        return fail(1041, "滑块验证未通过，请重试")
 
     # ── 账号锁定检查 ──
     if redis:
@@ -230,3 +240,20 @@ async def unlock_admin(
     await redis.delete(locked_key, fail_key)
     logger.info("[管理解锁] admin_id=%s 解锁账号 username=%s", current_admin["admin_id"], username)
     return success({"message": f"账号 {username} 已解锁"})
+
+
+@router.get("/captcha/slide")
+async def admin_captcha_slide():
+    """生成一个新的滑块验证码挑战。"""
+    ch, target_x = slide_captcha_service.generate()
+    await slide_captcha_service.store_answer(ch.captcha_id, target_x)
+    bg_w, bg_h, piece = slide_captcha_service.img_size()
+    return success({
+        "captcha_id": ch.captcha_id,
+        "bg_image": ch.bg_image_b64,
+        "jigsaw_image": ch.jigsaw_image_b64,
+        "jigsaw_y": ch.jigsaw_y,
+        "bg_width": bg_w,
+        "bg_height": bg_h,
+        "piece_size": piece,
+    })
