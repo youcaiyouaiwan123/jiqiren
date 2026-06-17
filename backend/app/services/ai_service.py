@@ -274,6 +274,13 @@ _AI_CONFIG_CACHE_KEY = "config:ai_config"
 _AI_CONFIG_CACHE_TTL = 60   # 秒；管理端改配置后最多 60 秒生效
 
 
+def _is_faq_item(item: dict) -> bool:
+    """判断是否属于 FAQ 类知识：路径或标题包含 faq 关键字。"""
+    src = (item.get("source") or "").lower()
+    title = (item.get("title") or "").lower()
+    return "faq" in src or "faq" in title
+
+
 async def _load_ai_config(db: AsyncSession) -> dict[str, str]:
     redis = get_redis(required=False)
     if redis:
@@ -372,6 +379,7 @@ async def _retrieve_knowledge_docs(
     model_name = (ai_cfg.get("knowledge_embedding_model") or settings.KNOWLEDGE_EMBEDDING_MODEL).strip() or None
     top_k = _parse_int(ai_cfg.get("knowledge_top_k"), 3)
     min_score = _parse_float(ai_cfg.get("knowledge_min_score"), 0.35)
+    faq_enabled = _parse_bool(ai_cfg.get("faq_enabled"), True)
     knowledge_cfg = await load_knowledge_config_map(db)
     runtime_cfg = build_effective_knowledge_config(knowledge_cfg)
     embedding_meta: dict[str, Any] = {}
@@ -417,6 +425,11 @@ async def _retrieve_knowledge_docs(
         logger.warning("[知识库] Embedding 异常，已切换关键词检索 | hits=%s error=%s", len(fallback_hits), retrieval_state.get("error"))
 
     hits = [item for item in matches if item.get("score", 0) >= min_score]
+    if not faq_enabled:
+        before = len(hits)
+        hits = [item for item in hits if not _is_faq_item(item)]
+        if before != len(hits):
+            logger.info("[知识库] faq_enabled=false，过滤掉 %s 条 FAQ 类知识", before - len(hits))
     if not hits:
         fallback_hits = _fallback_keyword_matches(query, runtime_cfg["vault_path"], top_k=top_k, min_score=min_score)
         if not fallback_hits:

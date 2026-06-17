@@ -339,6 +339,11 @@ async def send_message(
                 in_tokens = usage_info.get("input_tokens", 0)
                 out_tokens = usage_info.get("output_tokens", 0)
                 docs = retrieval_info.get("docs", [])
+                # doc_recommend=false 时不向前端返回参考文档列表
+                from app.services.ai_service import _load_ai_config, _parse_bool as _ai_parse_bool
+                _ai_cfg_for_docs = await _load_ai_config(db)
+                if not _ai_parse_bool(_ai_cfg_for_docs.get("doc_recommend"), True):
+                    docs = []
 
                 ai_msg = Message(
                     conversation_id=conv_id,
