@@ -23,7 +23,7 @@ aliases:
 
 方法一：用 VS Code 安装（课程主推）
 1. 打开 VS Code 终端
-2. 输入：`npm install -g @anthropic-ai/claude-code`
+2. 输入：`npm install -g @anthropic-ai/claude-code`（如果下载慢，加 `--registry=https://registry.npmmirror.com` 用国内镜像）
 3. 课程演示以 VS Code 为主，跟着课程走最方便
 
 方法二：用 Cursor 安装
@@ -52,14 +52,13 @@ aliases:
 如果 Claude Code 登录时报错，大概率是配置文件问题。
 
 解决方法：
-1. 找到 `.claude.json` 文件：
-   - Windows：打开文件资源管理器，地址栏输入 `C:\Users\你的用户名\` 回车
+1. 找到配置目录：
+   - Windows：打开文件资源管理器，地址栏输入 `C:\Users\你的用户名\.claude\` 回车
    - Mac：打开访达，按 Cmd+Shift+G，输入 `~/.claude/` 回车
-2. 用记事本或 Cursor 打开 `.claude.json`
-3. 在文件最后一行加上：`"hasCompletedOnboarding": true`
-4. 保存文件，重新启动 Claude Code
+2. 查看目录下的配置文件，找到 onboarding 相关设置，确保已完成初始化
+3. 保存文件，重新启动 Claude Code
 
-如果文件里内容很乱或者找不到这个文件，也可以直接删掉整个 `.claude` 文件夹，然后重新运行 `claude` 命令，它会重新初始化。
+如果配置混乱无法修复，可以删除 `.claude` 文件夹重新初始化。**注意：这会清除所有 Claude Code 的本地配置、记忆和 MCP 设置，操作前先备份重要内容。** 删除后重新运行 `claude` 命令，它会重新初始化。
 
 ## 需要输入密码但看不到？
 
@@ -85,7 +84,7 @@ aliases:
 
 看到这个界面，说明 Claude Code 已经安装成功了，只是最后连接没通。
 
-第一步：把截图发给 AI 对话框，问它怎么解决。
+第一步：把截图发到 Claude 网页版（claude.ai）或其他 AI 工具的对话框，问它怎么解决。
 第二步：如果还是不行，联系合作的 API 供应商，他们支持远程技术支持，几分钟就能搞定。
 
 ## Claude Code 里没有看到填 API 密钥的地方，该怎么连接？

@@ -25,12 +25,12 @@ aliases:
 
 | 报错信息 | 常见原因 | 处理方向 |
 | --- | --- | --- |
-| 400 Bad Request | 请求格式错误或 API 参数有误 | 检查 API Key 和模型名称是否正确 |
+| 400 Bad Request | 请求格式错误、API 参数有误、或 AWS 实验功能冲突 | 检查 API Key 和模型名称是否正确；如用 AWS 令牌，尝试设置环境变量 `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1` |
 | 401 Unauthorized | API Key 无效或未设置 | 重新检查并设置正确的 API Key |
 | 503 Service Unavailable | API 服务暂时不可用 | 稍等片刻后重试，或切换 API 供应商 |
-| Unable to connect | 网络连接问题，或科学上网未开启 | 检查网络，确认科学上网已开启 |
+| Unable to connect | 网络连接问题 | 用官方 API：检查科学上网是否开启；用国内中转 API：检查网络是否正常、API 地址是否正确 |
 | npm not found | Node.js 未安装或未配置到 PATH | 重新安装 Node.js |
 | permission denied | 没有执行权限 | Mac 用户在命令前加 `sudo` |
-| Failed to connect to MCP server | 杀毒软件拦截，或 MCP 服务未启动 | 添加白名单，重启 Claude Code |
+| Failed to connect to MCP server | 杀毒软件拦截、MCP 服务未启动、或配置文件格式错误 | 添加白名单、检查配置文件 JSON 格式、重启 Claude Code |
 
 如果遇到上述表格未覆盖的报错，截图报错完整信息后在社群艾特技术老师。

@@ -23,7 +23,7 @@ aliases:
 
 1. 检查网络代理是否开启且连接稳定（"魔法"是否正常）。
 2. 遇到"上下文断开"、"API 错误"、"400"、"429"等报错：网络正常的情况下，查阅官方文档寻找解决方法。
-3. 遇到"503 报错"：打开浏览器访问 www.claudecc.top，进入"令牌管理"，点击"编辑"，切换一个可用分组即可。
+3. 遇到"503 报错"：如果是 claudecc.top 用户，打开浏览器访问 www.claudecc.top，进入"令牌管理"，点击"编辑"，切换一个可用分组。如果是其他供应商，检查 API Key 是否有效、余额是否充足。
 
 ## 第一步：安装 Node.js
 
@@ -45,10 +45,16 @@ git -v
 
 ## 第三步：安装 Claude Code
 
-Mac 用户需在命令前加 `sudo`，Windows 用户直接执行：
+**Mac 用户**（需要加 sudo）：
 
 ```
 sudo npm install -g @anthropic-ai/claude-code --registry=https://registry.npmmirror.com
+```
+
+**Windows 用户**（不需要 sudo）：
+
+```
+npm install -g @anthropic-ai/claude-code --registry=https://registry.npmmirror.com
 ```
 
 验证安装：
@@ -57,8 +63,16 @@ sudo npm install -g @anthropic-ai/claude-code --registry=https://registry.npmmir
 claude -v
 ```
 
-## 第四步：配置永久环境变量（令牌）
+## 第四步：配置 API 连接
 
+有两种方式，二选一：
+
+**方式 A：用 CC Switch（推荐）**
+1. 安装 CC Switch，参考《CC Switch FAQ》
+2. 添加你的 API 供应商（云雾、悠悠、claudecc 等）
+3. 启用后新开终端，输入 `claude` 即可
+
+**方式 B：手动配置环境变量（以 claudecc.top 为例）**
 1. 浏览器访问 claudecc.top，注册账号。
 2. 点击"创建令牌"，自定义名字，选择 aws 分组。
 3. 复制生成的令牌，打开"一键安装文档页面"粘贴令牌。
