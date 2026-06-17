@@ -15,7 +15,7 @@ from app.services.knowledge_loader import load_knowledge_chunks
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-_BATCH_SIZE = 32
+_BATCH_SIZE = 10
 
 
 async def reindex_knowledge(db: AsyncSession) -> dict[str, Any]:
