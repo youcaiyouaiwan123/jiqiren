@@ -3,8 +3,16 @@ import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import api from '@/utils/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AdminPage from '@/components/AdminPage.vue'
 
 const PAGE_SIZE = 20
+
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) return '-'
+  const s = String(value).trim()
+  if (!s) return '-'
+  return s.replace('T', ' ').replace(/\.\d+/, '').replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
+}
 
 interface RedeemRow {
   id: number
@@ -205,25 +213,23 @@ onMounted(fetchList)
 </script>
 
 <template>
-  <div>
-    <!-- 工具栏 -->
-    <div class="mb-3 flex items-center justify-between gap-3">
-      <div class="flex items-center gap-3">
-        <el-select
-          v-model="statusFilter"
-          placeholder="全部状态"
-          clearable
-          style="width: 130px"
-          @change="onFilterChange"
-        >
-          <el-option label="未使用" value="unused" />
-          <el-option label="已使用" value="used" />
-          <el-option label="已过期" value="expired" />
-        </el-select>
-        <span class="text-sm text-gray-400">共 {{ total }} 条</span>
-      </div>
-      <el-button type="primary" @click="genDialog = true; generatedCodes = []">生成兑换码</el-button>
-    </div>
+  <AdminPage title="兑换码">
+    <template #tools>
+      <el-select
+        v-model="statusFilter"
+        placeholder="全部状态"
+        clearable
+        size="default"
+        style="width: 130px"
+        @change="onFilterChange"
+      >
+        <el-option label="未使用" value="unused" />
+        <el-option label="已使用" value="used" />
+        <el-option label="已过期" value="expired" />
+      </el-select>
+      <span class="text-xs text-gray-400">共 {{ total }} 条</span>
+      <el-button type="primary" size="default" @click="genDialog = true; generatedCodes = []">生成兑换码</el-button>
+    </template>
 
     <!-- 批量操作栏（始终可见，无选中时置灰） -->
     <div
@@ -254,7 +260,7 @@ onMounted(fetchList)
     </div>
 
     <!-- 表格 -->
-    <el-table :data="list" v-loading="loading" border stripe class="rounded-lg">
+    <el-table :data="list" v-loading="loading" border stripe size="small" class="rounded">
       <!-- 自定义选择列，实现两次点击全选逻辑 -->
       <el-table-column width="50" align="center">
         <template #header>
@@ -296,20 +302,22 @@ onMounted(fetchList)
         <template #default="{ row }">{{ row.used_by || '-' }}</template>
       </el-table-column>
       <el-table-column label="使用时间" width="170">
-        <template #default="{ row }">{{ row.used_at || '-' }}</template>
+        <template #default="{ row }">{{ formatDateTime(row.used_at) }}</template>
       </el-table-column>
       <el-table-column label="过期时间" width="170">
-        <template #default="{ row }">{{ row.expire_at || '-' }}</template>
+        <template #default="{ row }">{{ formatDateTime(row.expire_at) }}</template>
       </el-table-column>
-      <el-table-column prop="created_at" label="创建时间" width="170" />
-      <el-table-column label="操作" width="80" fixed="right">
+      <el-table-column label="创建时间" width="170">
+        <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="80">
         <template #default="{ row }">
           <el-button size="small" text type="danger" @click="handleDelete(row.id)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
 
-    <div class="mt-4 flex justify-end" v-if="total > PAGE_SIZE">
+    <div class="mt-3 flex justify-end" v-if="total > PAGE_SIZE">
       <el-pagination
         v-model:current-page="page"
         :page-size="PAGE_SIZE"
@@ -353,5 +361,5 @@ onMounted(fetchList)
         <el-button type="primary" @click="generate">生成</el-button>
       </template>
     </el-dialog>
-  </div>
+  </AdminPage>
 </template>

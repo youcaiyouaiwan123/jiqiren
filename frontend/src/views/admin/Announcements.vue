@@ -2,6 +2,7 @@
 import { ref, onMounted, watch } from 'vue'
 import api from '@/utils/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AdminPage from '@/components/AdminPage.vue'
 
 interface Announce {
   id: number; title: string; content: string; type: string
@@ -97,13 +98,13 @@ onMounted(fetchList)
 </script>
 
 <template>
-  <div>
-    <div class="flex justify-between mb-4">
-      <span class="text-sm text-gray-400">共 {{ total }} 条公告</span>
-      <el-button type="primary" @click="openCreate">新建公告</el-button>
-    </div>
+  <AdminPage title="公告管理">
+    <template #tools>
+      <span class="text-xs text-gray-400">共 {{ total }} 条</span>
+      <el-button type="primary" size="default" @click="openCreate">新建公告</el-button>
+    </template>
 
-    <el-table :data="list" v-loading="loading" border stripe style="width: 100%" class="rounded-lg">
+    <el-table :data="list" v-loading="loading" border stripe size="small" style="width: 100%" class="rounded">
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="title" label="标题" min-width="180" show-overflow-tooltip />
       <el-table-column prop="type" label="类型" width="90">
@@ -169,5 +170,5 @@ onMounted(fetchList)
         <el-button type="primary" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
-  </div>
+  </AdminPage>
 </template>

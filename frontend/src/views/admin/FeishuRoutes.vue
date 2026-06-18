@@ -2,6 +2,7 @@
 import { ref, onMounted, watch } from 'vue'
 import api from '@/utils/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AdminPage from '@/components/AdminPage.vue'
 
 interface FeishuRoute {
   id: number
@@ -208,30 +209,10 @@ onMounted(fetchList)
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="rounded-[28px] border border-slate-200 bg-white/95 px-6 py-6 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.35)]">
-      <div class="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-        <div class="max-w-3xl">
-          <div class="text-lg font-semibold text-slate-900">飞书多维表连接配置</div>
-          <div class="mt-2 text-sm leading-6 text-slate-500">支持直接粘贴完整多维表链接，系统会自动解析 App Token 与 Table ID。测试连接采用只读校验，不会写入测试数据。</div>
-        </div>
-        <el-button type="primary" size="large" @click="openCreate">新增路由</el-button>
-      </div>
-      <div class="mt-5 grid gap-3 sm:grid-cols-3">
-        <div class="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4">
-          <div class="text-xs font-medium uppercase tracking-wide text-slate-500">应用凭证</div>
-          <div class="mt-2 text-sm text-slate-700">仅需填写开放平台里的 `App ID` 与 `App Secret`。</div>
-        </div>
-        <div class="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4">
-          <div class="text-xs font-medium uppercase tracking-wide text-slate-500">多维表链接</div>
-          <div class="mt-2 text-sm text-slate-700">推荐直接粘贴完整多维表地址，系统会自动解析后两个参数。</div>
-        </div>
-        <div class="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4">
-          <div class="text-xs font-medium uppercase tracking-wide text-slate-500">连接测试</div>
-          <div class="mt-2 text-sm text-slate-700">一键判断是 `App Token`、`Table ID` 还是权限有问题。</div>
-        </div>
-      </div>
-    </div>
+  <AdminPage title="飞书配置" subtitle="支持直接粘贴完整多维表链接，系统会自动解析 App Token 与 Table ID" no-card>
+    <template #tools>
+      <el-button type="primary" size="default" @click="openCreate">新增路由</el-button>
+    </template>
 
     <div
       v-if="pageTestResult"
@@ -279,7 +260,7 @@ onMounted(fetchList)
       </div>
     </div>
 
-    <div class="rounded-[28px] border border-slate-200 bg-white/95 px-6 py-5 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.35)]">
+    <div class="rounded-lg border border-slate-200 bg-white px-6 py-5 ">
       <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div class="text-sm text-slate-500">共 {{ total }} 条飞书路由，系统默认使用启用状态的首条对话记录路由。</div>
         <div class="text-xs text-slate-400">行内可直接测试，不需要先去发用户对话。</div>
@@ -393,5 +374,5 @@ onMounted(fetchList)
         <el-button type="primary" :loading="saving" @click="handleSubmit">{{ isEdit ? '保存修改' : '创建路由' }}</el-button>
       </template>
     </el-dialog>
-  </div>
+  </AdminPage>
 </template>

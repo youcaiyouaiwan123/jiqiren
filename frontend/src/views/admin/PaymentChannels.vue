@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/utils/api'
+import AdminPage from '@/components/AdminPage.vue'
 
 interface PaymentExtraConfig {
   display_name?: string
@@ -153,32 +154,14 @@ onMounted(fetchList)
 </script>
 
 <template>
-  <div class="space-y-5">
-    <section class="grid gap-3 md:grid-cols-3">
-      <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-3.5 shadow-sm">
-        <div class="text-sm text-slate-500">支付渠道</div>
-        <div class="mt-2 text-2xl font-semibold text-slate-900">{{ list.length }}</div>
-      </div>
-      <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-3.5 shadow-sm">
-        <div class="text-sm text-slate-500">已启用</div>
-        <div class="mt-2 text-2xl font-semibold text-emerald-600">{{ activeCount }}</div>
-      </div>
-      <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-3.5 shadow-sm">
-        <div class="text-sm text-slate-500">用户端展示</div>
-        <div class="mt-2 text-xs leading-5 text-slate-600">支持配置展示名、按钮文案、收款码和外部支付链接。</div>
-      </div>
-    </section>
+  <AdminPage title="支付设置" subtitle="保留现有商户配置，同时补充用户端可见的渠道说明和跳转配置">
+    <template #tools>
+      <span class="rc-stat-mini">渠道 <b>{{ list.length }}</b></span>
+      <span class="rc-stat-mini">已启用 <b class="text-emerald-600">{{ activeCount }}</b></span>
+      <el-button type="primary" size="default" @click="openCreate">新增渠道</el-button>
+    </template>
 
-    <section class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 class="text-lg font-semibold text-slate-900">支付渠道配置</h2>
-          <p class="mt-1 text-xs text-slate-500">保留现有商户配置，同时补充用户端可见的渠道说明和跳转配置。</p>
-        </div>
-        <el-button type="primary" @click="openCreate">新增渠道</el-button>
-      </div>
-
-      <el-table :data="list" v-loading="loading" stripe border class="mt-4" style="width: 100%">
+      <el-table :data="list" v-loading="loading" stripe border size="small" style="width: 100%">
         <el-table-column prop="channel" label="渠道" width="100" />
         <el-table-column label="展示信息" min-width="200">
           <template #default="{ row }">
@@ -193,19 +176,18 @@ onMounted(fetchList)
             <el-tag :type="row.is_active ? 'success' : 'info'" size="small">{{ row.is_active ? '启用' : '停用' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="160">
           <template #default="{ row }">
             <el-button size="small" text type="primary" @click="openEdit(row)">编辑</el-button>
             <el-button size="small" text type="danger" @click="removeChannel(row.id)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
-    </section>
 
     <el-dialog v-model="dialogVisible" :title="form.id ? '编辑支付渠道' : '新增支付渠道'" width="960px" top="6vh" destroy-on-close>
       <div class="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_300px]">
         <div class="space-y-4">
-          <section class="rounded-[24px] border border-slate-200 bg-slate-50/70 p-3.5">
+          <section class="rounded-lg border border-slate-200 bg-slate-50/70 p-3.5">
             <div class="mb-2.5 text-sm font-semibold text-slate-700">商户配置</div>
             <el-form label-position="top" class="grid gap-2.5 md:grid-cols-2">
               <el-form-item label="支付渠道" required class="!mb-0">
@@ -232,7 +214,7 @@ onMounted(fetchList)
             </el-form>
           </section>
 
-          <section class="rounded-[24px] border border-slate-200 bg-white p-3">
+          <section class="rounded-lg border border-slate-200 bg-white p-3">
             <div class="mb-2 text-sm font-semibold text-slate-700">用户端展示配置</div>
             <el-form label-position="top" class="grid gap-2 md:grid-cols-2">
               <el-form-item label="展示名称" class="!mb-0">
@@ -257,12 +239,12 @@ onMounted(fetchList)
           </section>
         </div>
 
-        <aside class="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+        <aside class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <div class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">{{ channelLabel }}</div>
           <h3 class="mt-2 text-xl font-semibold text-slate-900">{{ previewTitle }}</h3>
           <p class="mt-3 text-xs leading-5 text-slate-500">{{ form.description || '在订阅弹窗中引导用户完成支付。' }}</p>
 
-          <div class="mt-4 rounded-[24px] border border-dashed border-slate-300 bg-slate-50 p-3 text-center">
+          <div class="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3 text-center">
             <img v-if="form.qrcode_url" :src="form.qrcode_url" alt="支付二维码" class="mx-auto h-40 w-40 rounded-2xl object-cover" />
             <div v-else class="py-10 text-xs text-slate-400">未配置收款码预览</div>
           </div>
@@ -279,5 +261,10 @@ onMounted(fetchList)
         <el-button type="primary" :loading="saving" @click="saveChannel">保存渠道</el-button>
       </template>
     </el-dialog>
-  </div>
+  </AdminPage>
 </template>
+
+<style scoped>
+.rc-stat-mini { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #e5e7eb; border-radius: 4px; background: #fff; font-size: 12px; color: #475569; }
+.rc-stat-mini b { color: #1f2937; font-weight: 600; }
+</style>

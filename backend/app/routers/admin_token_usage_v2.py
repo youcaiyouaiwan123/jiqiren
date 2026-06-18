@@ -202,6 +202,8 @@ async def token_usage_list(
             TokenUsage.model,
             TokenUsage.input_tokens,
             TokenUsage.output_tokens,
+            TokenUsage.cache_read_tokens,
+            TokenUsage.cache_creation_tokens,
             TokenUsage.cost_usd,
             TokenUsage.created_at,
         )
@@ -231,6 +233,8 @@ async def token_usage_list(
                 "model": row.model or "",
                 "input_tokens": row.input_tokens,
                 "output_tokens": row.output_tokens,
+                "cache_read_tokens": row.cache_read_tokens or 0,
+                "cache_creation_tokens": row.cache_creation_tokens or 0,
                 "cost_usd": float(row.cost_usd) if row.cost_usd else 0.0,
                 "created_at": row.created_at.isoformat() if row.created_at else "",
             }

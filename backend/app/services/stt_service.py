@@ -10,8 +10,10 @@ logger = logging.getLogger(__name__)
 _model = None
 _model_lock = asyncio.Lock()
 
-# 使用 medium 模型，中文准确率显著优于 small，CPU 推理 5-10 秒
-MODEL_SIZE = "medium"
+# 模型大小通过环境变量 WHISPER_MODEL_SIZE 配置（默认 small）。
+# small 中文准确率够用、内存占用约为 medium 的一半，适合小内存机器；
+# 想要更高精度可设为 medium，更省内存可设为 base/tiny。
+MODEL_SIZE = os.getenv("WHISPER_MODEL_SIZE", "small")
 
 
 def _sanitize_sslkeylogfile_env() -> None:

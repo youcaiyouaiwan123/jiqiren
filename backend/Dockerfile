@@ -30,6 +30,10 @@ RUN pip install --upgrade pip \
     && pip install --index-url https://download.pytorch.org/whl/cpu torch==2.5.1 \
     && pip install -r requirements.txt
 
+# slide_captcha_service.py 依赖 Pillow（登录页滑块验证码），但历史上漏写进
+# requirements.txt。单独补装为独立层，避免使上面的 torch/依赖大层缓存失效。
+RUN pip install "Pillow>=10.1.0"
+
 # 再拷贝项目代码
 COPY . /app
 

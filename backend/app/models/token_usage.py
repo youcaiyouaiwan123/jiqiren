@@ -15,6 +15,8 @@ class TokenUsage(Base):
     model: Mapped[str | None] = mapped_column(String(50))
     input_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
     output_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    cache_read_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="缓存命中读取 token 数")
+    cache_creation_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="缓存写入 token 数")
     cost_usd: Mapped[float | None] = mapped_column(DECIMAL(10, 6), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

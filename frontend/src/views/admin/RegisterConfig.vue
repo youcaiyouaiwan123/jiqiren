@@ -2,6 +2,7 @@
 import { computed, ref, onMounted } from 'vue'
 import api from '@/utils/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AdminPage from '@/components/AdminPage.vue'
 
 type SyncResult = {
   affectedUsers: number
@@ -104,30 +105,24 @@ onMounted(fetchConfig)
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl space-y-8 pb-6">
-    <div class="rounded-[28px] border border-slate-200 bg-white px-5 py-4 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)] sm:px-6">
-      <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div class="min-w-0">
-          <h2 class="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">注册设置中心</h2>
-        </div>
-        <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:min-w-[390px] xl:max-w-[430px]">
-          <div class="rounded-2xl border border-sky-100 bg-sky-50/70 px-3.5 py-3">
-            <div class="text-[11px] font-medium text-sky-700">注册状态</div>
-            <div class="mt-1 text-sm font-semibold text-slate-900">{{ registerEnabled ? '已开启' : '已关闭' }}</div>
-          </div>
-          <div class="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-3.5 py-3">
-            <div class="text-[11px] font-medium text-emerald-700">验证码通道</div>
-            <div class="mt-1 text-sm font-semibold text-slate-900">{{ enabledChannelCount }} 个</div>
-          </div>
-          <div class="rounded-2xl border border-violet-100 bg-violet-50/70 px-3.5 py-3">
-            <div class="text-[11px] font-medium text-violet-700">默认赠送</div>
-            <div class="mt-1 text-sm font-semibold text-slate-900">{{ defaultFreeChatsValue }} 次</div>
-          </div>
-        </div>
+  <AdminPage title="注册设置" subtitle="统一控制注册入口、邀请码与默认赠送次数" no-card>
+    <template #tools>
+      <div class="rc-stat">
+        <span class="rc-stat-dot rc-stat-sky"></span>
+        <span class="rc-stat-text">{{ registerEnabled ? '注册开启' : '注册关闭' }}</span>
       </div>
-    </div>
+      <div class="rc-stat">
+        <span class="rc-stat-dot rc-stat-emerald"></span>
+        <span class="rc-stat-text">通道 {{ enabledChannelCount }}</span>
+      </div>
+      <div class="rc-stat">
+        <span class="rc-stat-dot rc-stat-violet"></span>
+        <span class="rc-stat-text">默认 {{ defaultFreeChatsValue }} 次</span>
+      </div>
+    </template>
+
     <!-- 基本注册设置 -->
-    <div class="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)]">
+    <div class="overflow-hidden rounded-lg border border-slate-200 bg-white ">
       <div class="border-b border-slate-200 px-6 py-4 sm:px-7">
         <div class="flex flex-col gap-2.5 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -166,7 +161,7 @@ onMounted(fetchConfig)
 
     <div class="grid grid-cols-1 gap-5 xl:grid-cols-2">
       <!-- 短信服务配置 -->
-      <div :class="['overflow-hidden rounded-[28px] border bg-white shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)] transition', smsConfigEnabled ? 'border-sky-200' : 'border-slate-200']">
+      <div :class="['overflow-hidden rounded-lg border bg-white  transition', smsConfigEnabled ? 'border-sky-200' : 'border-slate-200']">
         <div :class="['px-5 py-3 sm:px-6 border-b', smsConfigEnabled ? 'border-sky-100 bg-sky-50/80 text-slate-900' : 'border-slate-200 bg-slate-50/80 text-slate-700']">
           <div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -228,7 +223,7 @@ onMounted(fetchConfig)
       </div>
 
       <!-- 邮件服务配置 -->
-      <div :class="['overflow-hidden rounded-[28px] border bg-white shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)] transition', emailConfigEnabled ? 'border-indigo-200' : 'border-slate-200']">
+      <div :class="['overflow-hidden rounded-lg border bg-white  transition', emailConfigEnabled ? 'border-indigo-200' : 'border-slate-200']">
         <div :class="['px-5 py-3 sm:px-6 border-b', emailConfigEnabled ? 'border-indigo-100 bg-indigo-50/80 text-slate-900' : 'border-slate-200 bg-slate-50/80 text-slate-700']">
           <div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -273,7 +268,7 @@ onMounted(fetchConfig)
       </div>
     </div>
 
-    <div class="flex flex-col gap-4 rounded-[28px] border border-slate-200 bg-white px-6 py-5 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)] sm:flex-row sm:items-center sm:justify-between">
+    <div class="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white px-6 py-5  sm:flex-row sm:items-center sm:justify-between">
       <div>
         <div class="text-sm font-medium text-slate-800">保存后会同步新老免费用户</div>
         <div class="mt-1 text-xs text-slate-500">默认免费次数会同时用于后续新注册用户，并覆盖当前所有免费套餐用户的剩余免费次数。建议至少启用一种可用的短信或邮件验证码通道，再开放对应注册方式。</div>
@@ -284,7 +279,7 @@ onMounted(fetchConfig)
       </div>
     </div>
 
-    <div v-if="lastSyncResult" class="rounded-[24px] border border-slate-200 bg-white px-6 py-5 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)]">
+    <div v-if="lastSyncResult" class="rounded-[24px] border border-slate-200 bg-white px-6 py-5 ">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div class="text-sm font-semibold text-slate-900">最近一次同步已完成</div>
@@ -302,5 +297,14 @@ onMounted(fetchConfig)
         </div>
       </div>
     </div>
-  </div>
+  </AdminPage>
 </template>
+
+<style scoped>
+.rc-stat { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid #e5e7eb; border-radius: 999px; background: #fff; font-size: 12px; color: #475569; }
+.rc-stat-dot { width: 6px; height: 6px; border-radius: 999px; display: inline-block; }
+.rc-stat-sky { background: #0ea5e9; }
+.rc-stat-emerald { background: #10b981; }
+.rc-stat-violet { background: #8b5cf6; }
+.rc-stat-text { line-height: 1; }
+</style>

@@ -4,6 +4,7 @@ import axios from 'axios'
 import api from '@/utils/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, UploadFilled } from '@element-plus/icons-vue'
+import AdminPage from '@/components/AdminPage.vue'
 
 const PAGE_SIZE = 20
 
@@ -411,29 +412,28 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div>
-    <!-- 工具栏 -->
-    <div class="mb-4 flex flex-wrap items-center gap-3">
-      <el-input v-model="keyword" placeholder="搜索昵称/手机号/邮箱/备注" clearable style="width: 280px" @keyup.enter="onSearch" />
-      <el-select v-model="statusFilter" placeholder="全部状态" clearable style="width: 130px">
+  <AdminPage title="用户管理">
+    <template #tools>
+      <el-input v-model="keyword" placeholder="搜索昵称/手机号/邮箱/备注" clearable size="default" style="width: 240px" @keyup.enter="onSearch" />
+      <el-select v-model="statusFilter" placeholder="全部状态" clearable size="default" style="width: 110px">
         <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
-      <el-select v-model="subscribePlanFilter" placeholder="全部订阅" clearable style="width: 130px">
+      <el-select v-model="subscribePlanFilter" placeholder="全部订阅" clearable size="default" style="width: 110px">
         <el-option v-for="item in subscribePlanOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
-      <el-button type="primary" @click="onSearch">搜索</el-button>
-      <el-button @click="onReset">重置</el-button>
-      <el-button type="success" @click="openCreateDialog">新增用户</el-button>
-      <el-button @click="openImportDialog">批量导入</el-button>
+      <el-button type="primary" size="default" @click="onSearch">搜索</el-button>
+      <el-button size="default" @click="onReset">重置</el-button>
+      <el-button type="success" size="default" @click="openCreateDialog">新增用户</el-button>
+      <el-button size="default" @click="openImportDialog">批量导入</el-button>
       <template v-if="selectedRows.length > 0">
         <el-divider direction="vertical" />
-        <span class="text-sm text-gray-500">已选 {{ selectedRows.length }} 人</span>
-        <el-button type="primary" @click="openBatchSubscribeDialog">批量授权</el-button>
+        <span class="text-xs text-gray-500">已选 {{ selectedRows.length }} 人</span>
+        <el-button type="primary" size="default" @click="openBatchSubscribeDialog">批量授权</el-button>
       </template>
-    </div>
+    </template>
 
     <!-- 用户表格 -->
-    <el-table :data="list" v-loading="loading" border stripe class="rounded-lg" @selection-change="onSelectionChange">
+    <el-table :data="list" v-loading="loading" border stripe size="small" class="rounded" @selection-change="onSelectionChange">
       <el-table-column type="selection" width="50" :selectable="(row: UserRow) => !row.deleted_at" />
       <el-table-column prop="id" label="ID" width="72" />
       <el-table-column label="昵称" width="130">
@@ -725,5 +725,5 @@ onMounted(async () => {
         <el-button type="primary" :loading="batchSubscribeLoading" @click="saveBatchSubscribe">确认授权</el-button>
       </template>
     </el-dialog>
-  </div>
+  </AdminPage>
 </template>

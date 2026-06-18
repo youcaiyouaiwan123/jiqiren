@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import api from '@/utils/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AdminPage from '@/components/AdminPage.vue'
 
 interface ConfigItem {
   id: number
@@ -178,35 +179,16 @@ onMounted(fetchConfig)
 </script>
 
  <template>
-  <div class="mx-auto max-w-6xl space-y-8 pb-6">
-    <div class="rounded-[28px] border border-slate-200 bg-white px-5 py-4 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)] sm:px-6">
-      <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div class="min-w-0">
-            <h2 class="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">知识源配置中心</h2>
-          </div>
-          <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:min-w-[460px] xl:max-w-[500px]">
-            <div class="rounded-2xl border border-sky-100 bg-sky-50/70 px-3.5 py-2.5">
-              <div class="text-[11px] font-medium text-sky-700">知识目录</div>
-              <div class="mt-1 text-sm font-semibold text-slate-900">{{ effective.vault_path ? '已配置' : '未配置' }}</div>
-            </div>
-            <div class="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-3.5 py-2.5">
-              <div class="text-[11px] font-medium text-emerald-700">索引目录</div>
-              <div class="mt-1 text-sm font-semibold text-slate-900">{{ effective.index_dir ? '已配置' : '未配置' }}</div>
-            </div>
-            <div class="rounded-2xl border border-violet-100 bg-violet-50/70 px-3.5 py-2.5">
-              <div class="text-[11px] font-medium text-violet-700">Git 仓库</div>
-              <div class="mt-1 text-sm font-semibold text-slate-900">{{ gitConfigured ? '已记录' : '未记录' }}</div>
-            </div>
-            <div class="rounded-2xl border border-slate-200 bg-slate-50/80 px-3.5 py-2.5">
-              <div class="text-[11px] font-medium text-slate-500">默认分支</div>
-              <div class="mt-1 text-sm font-semibold text-slate-900">{{ form.git_branch || 'main' }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
+  <AdminPage title="知识源配置" subtitle="配置知识库路径、索引目录与 Git 仓库" no-card>
+    <template #tools>
+      <span class="kc-stat">知识目录 <b>{{ effective.vault_path ? '✓' : '✗' }}</b></span>
+      <span class="kc-stat">索引目录 <b>{{ effective.index_dir ? '✓' : '✗' }}</b></span>
+      <span class="kc-stat">Git <b>{{ gitConfigured ? '✓' : '✗' }}</b></span>
+      <span class="kc-stat">分支 <b>{{ form.git_branch || 'main' }}</b></span>
+    </template>
 
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-      <div class="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)]">
+      <div class="overflow-hidden rounded-lg border border-slate-200 bg-white ">
         <div class="border-b border-slate-200 px-6 py-5 sm:px-7">
           <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -245,7 +227,7 @@ onMounted(fetchConfig)
         </div>
       </div>
 
-      <div class="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)]">
+      <div class="overflow-hidden rounded-lg border border-slate-200 bg-white ">
         <div class="border-b border-slate-200 px-6 py-5 sm:px-7">
           <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -271,7 +253,7 @@ onMounted(fetchConfig)
       </div>
     </div>
 
-    <div class="rounded-[28px] border border-slate-200 bg-white px-6 py-5 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)]">
+    <div class="rounded-lg border border-slate-200 bg-white px-6 py-5 ">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div class="text-sm font-semibold text-slate-900">聊天知识库检索开关</div>
@@ -285,7 +267,7 @@ onMounted(fetchConfig)
       </div>
     </div>
 
-    <div class="flex flex-col gap-4 rounded-[28px] border border-slate-200 bg-white px-6 py-5 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)] sm:flex-row sm:items-center sm:justify-between">
+    <div class="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white px-6 py-5  sm:flex-row sm:items-center sm:justify-between">
       <div>
         <div class="text-sm font-medium text-slate-800">保存后立即影响运行时配置</div>
         <div class="mt-1 text-xs text-slate-500">聊天检索和手动重建索引都会优先读取这里保存的知识源配置；如果还没保存，则继续使用 `.env` 默认值。</div>
@@ -297,7 +279,7 @@ onMounted(fetchConfig)
       </div>
     </div>
 
-    <div v-if="lastSyncResult" class="rounded-[24px] border border-slate-200 bg-white px-6 py-5 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)] mb-6">
+    <div v-if="lastSyncResult" class="rounded-[24px] border border-slate-200 bg-white px-6 py-5  mb-6">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div class="text-sm font-semibold text-slate-900">Git 同步已完成</div>
@@ -325,7 +307,7 @@ onMounted(fetchConfig)
       </div>
     </div>
 
-    <div v-if="lastReindexResult" class="rounded-[24px] border border-slate-200 bg-white px-6 py-5 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)]">
+    <div v-if="lastReindexResult" class="rounded-[24px] border border-slate-200 bg-white px-6 py-5 ">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div class="text-sm font-semibold text-slate-900">最近一次知识索引重建已完成</div>
@@ -370,5 +352,10 @@ onMounted(fetchConfig)
         </div>
       </div>
     </div>
-  </div>
+  </AdminPage>
 </template>
+
+<style scoped>
+.kc-stat { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #e5e7eb; border-radius: 4px; background: #fff; font-size: 12px; color: #475569; }
+.kc-stat b { color: #1f2937; font-weight: 600; }
+</style>

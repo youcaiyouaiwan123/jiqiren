@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/utils/api'
 import type { PlanDisplayConfig, SubscribePlan } from '@/types'
+import AdminPage from '@/components/AdminPage.vue'
 
 interface PlanFormState {
   id: number | null
@@ -174,30 +175,13 @@ onMounted(fetchList)
 </script>
 
 <template>
-  <div class="space-y-5">
-    <section class="grid gap-3 md:grid-cols-3">
-      <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-3.5 shadow-sm">
-        <div class="text-sm text-slate-500">套餐总数</div>
-        <div class="mt-2 text-2xl font-semibold text-slate-900">{{ list.length }}</div>
-      </div>
-      <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-3.5 shadow-sm">
-        <div class="text-sm text-slate-500">已上架</div>
-        <div class="mt-2 text-2xl font-semibold text-emerald-600">{{ activeCount }}</div>
-      </div>
-      <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-3.5 shadow-sm">
-        <div class="text-sm text-slate-500">推荐套餐</div>
-        <div class="mt-2 text-2xl font-semibold text-sky-600">{{ recommendedCount }}</div>
-      </div>
-    </section>
-
-    <section class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 class="text-lg font-semibold text-slate-900">订阅套餐配置</h2>
-          <p class="mt-1 text-xs text-slate-500">配置用户端弹窗里的价格卡片、卖点文案、推荐标签和跳转链接。</p>
-        </div>
-        <el-button type="primary" @click="openCreate">新增套餐</el-button>
-      </div>
+  <AdminPage title="套餐管理" subtitle="配置用户端弹窗里的价格卡片、卖点文案、推荐标签和跳转链接">
+    <template #tools>
+      <div class="sp-stat">套餐 <b>{{ list.length }}</b></div>
+      <div class="sp-stat">已上架 <b class="text-emerald-600">{{ activeCount }}</b></div>
+      <div class="sp-stat">推荐 <b class="text-sky-600">{{ recommendedCount }}</b></div>
+      <el-button type="primary" size="default" @click="openCreate">新增套餐</el-button>
+    </template>
 
       <el-table :data="list" v-loading="loading" stripe border class="mt-4" style="width: 100%">
         <el-table-column prop="name" label="套餐" min-width="160">
@@ -230,12 +214,11 @@ onMounted(fetchList)
           </template>
         </el-table-column>
       </el-table>
-    </section>
 
     <el-dialog v-model="dialogVisible" :title="form.id ? '编辑套餐' : '新增套餐'" width="940px" top="5vh" destroy-on-close>
       <div class="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_300px]">
         <div class="space-y-4">
-          <section class="rounded-[24px] border border-slate-200 bg-slate-50/70 p-3">
+          <section class="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
             <div class="mb-2 text-sm font-semibold text-slate-700">基础信息</div>
             <el-form label-position="top" class="grid gap-2 md:grid-cols-2">
               <el-form-item label="套餐名称" required class="!mb-0">
@@ -272,7 +255,7 @@ onMounted(fetchList)
             </el-form>
           </section>
 
-          <section class="rounded-[24px] border border-slate-200 bg-white p-3">
+          <section class="rounded-lg border border-slate-200 bg-white p-3">
             <div class="mb-2 text-sm font-semibold text-slate-700">用户端展示配置</div>
             <el-form label-position="top" class="grid gap-2 md:grid-cols-2">
               <el-form-item label="角标文案" class="!mb-0">
@@ -302,7 +285,7 @@ onMounted(fetchList)
           </section>
         </div>
 
-        <aside class="rounded-[24px] border border-slate-200 bg-white p-3.5 shadow-sm">
+        <aside class="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm">
           <div class="flex items-start justify-between gap-3">
             <div>
               <div class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">{{ previewCard.typeLabel }}</div>
@@ -345,5 +328,10 @@ onMounted(fetchList)
         <el-button type="primary" :loading="saving" @click="savePlan">保存套餐</el-button>
       </template>
     </el-dialog>
-  </div>
+  </AdminPage>
 </template>
+
+<style scoped>
+.sp-stat { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #e5e7eb; border-radius: 4px; background: #fff; font-size: 12px; color: #475569; }
+.sp-stat b { color: #1f2937; font-weight: 600; }
+</style>

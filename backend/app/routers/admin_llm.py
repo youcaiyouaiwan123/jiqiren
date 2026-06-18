@@ -28,6 +28,8 @@ class LlmBody(BaseModel):
     priority: int | None = None
     input_price: float | None = None
     output_price: float | None = None
+    cache_read_price: float | None = None
+    cache_write_price: float | None = None
     is_default: int | None = None
     is_active: int | None = None
     extra_config: dict | None = None

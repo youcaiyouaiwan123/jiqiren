@@ -48,6 +48,14 @@ _PROVIDER_DEFAULT_BASE_PATHS = {
     "zhipu": "/api/paas/v4",
 }
 
+# 前端聊天气泡按纯文本渲染，不解析 Markdown，因此强制模型输出口语化纯文本，
+# 避免用户看到 # * ` - | > 等原始符号。放在 system_prompt 末尾，优先级最高。
+_PLAIN_TEXT_FORMAT_RULE = (
+    "【回答格式要求】请用自然、口语化的纯文本中文回答，绝对不要使用任何 Markdown 语法。"
+    "具体要求：不要出现 #、*、**、`、```、>、|、--- 等符号；不要用加粗、标题、表格、引用块、代码块；"
+    "需要分点时直接用「1. 2. 3.」编号或换行短句；需要给出命令或代码时直接另起一行原样写出，不要用反引号或代码块包裹。"
+)
+
 
 def _normalize_provider(provider: str | None) -> str:
     key = (provider or "").strip().lower()
@@ -504,6 +512,9 @@ async def _stream_anthropic(
         resp = await stream.get_final_message()
         usage["input_tokens"] = resp.usage.input_tokens
         usage["output_tokens"] = resp.usage.output_tokens
+        # Claude 缓存 tokens
+        usage["cache_read_tokens"] = getattr(resp.usage, "cache_read_input_tokens", 0) or 0
+        usage["cache_creation_tokens"] = getattr(resp.usage, "cache_creation_input_tokens", 0) or 0
 
 
 # ──────────────────── OpenAI (GPT) / 智谱 (GLM) ────────────────────
@@ -539,6 +550,10 @@ async def _stream_openai(
         if chunk.usage:
             usage["input_tokens"] = chunk.usage.prompt_tokens or 0
             usage["output_tokens"] = chunk.usage.completion_tokens or 0
+            # OpenAI 缓存 tokens（cached_tokens 在 prompt_tokens_details 下）
+            details = getattr(chunk.usage, "prompt_tokens_details", None)
+            if details is not None:
+                usage["cache_read_tokens"] = getattr(details, "cached_tokens", 0) or 0
 
 
 # ──────────────────── Google (Gemini) ────────────────────
@@ -574,6 +589,8 @@ async def _stream_google(
         if chunk.usage_metadata:
             usage["input_tokens"] = chunk.usage_metadata.prompt_token_count or 0
             usage["output_tokens"] = chunk.usage_metadata.candidates_token_count or 0
+            # Gemini 缓存 tokens
+            usage["cache_read_tokens"] = getattr(chunk.usage_metadata, "cached_content_token_count", 0) or 0
 
 
 # ──────────────────── 厂商路由表 ────────────────────
@@ -631,6 +648,10 @@ async def stream_ai_response(
     if knowledge_context:
         system_prompt = f"{system_prompt}\n\n{knowledge_context}"
 
+    # 3.2 约束输出为纯文本：前端聊天气泡按纯文本渲染（{{ msg.content }}），
+    #     若模型输出 Markdown，用户会看到原始的 # * ` - 等符号，故强制口语化纯文本。
+    system_prompt = f"{system_prompt}\n\n{_PLAIN_TEXT_FORMAT_RULE}"
+
     # 4. 按优先级顺序尝试每个 Key，失败自动切换
     last_error: Exception | None = None
     for i, prov in enumerate(providers):
@@ -647,6 +668,10 @@ async def stream_ai_response(
         usage["model"] = prov.model
         usage["input_price"] = float(prov.input_price) if prov.input_price else 0.0
         usage["output_price"] = float(prov.output_price) if prov.output_price else 0.0
+        usage["cache_read_price"] = float(prov.cache_read_price) if prov.cache_read_price else 0.0
+        usage["cache_write_price"] = float(prov.cache_write_price) if prov.cache_write_price else 0.0
+        usage["cache_read_tokens"] = 0
+        usage["cache_creation_tokens"] = 0
 
         gen = stream_fn(
             provider=provider_key,

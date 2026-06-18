@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import api from '@/utils/api'
 import type { ApiResponse } from '@/types'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AdminPage from '@/components/AdminPage.vue'
 
 interface KnowledgeFileRow {
   path: string
@@ -300,46 +301,17 @@ onMounted(fetchList)
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl space-y-4 pb-4">
-    <input ref="importInput" type="file" accept=".md,text/markdown" multiple class="hidden" @change="handleImportChange" />
+  <AdminPage title="知识库文档" :subtitle="vaultPath || '未配置目录'" no-card>
+    <template #tools>
+      <span class="kf-stat">总 <b>{{ documentTotal }}</b></span>
+      <span class="kf-stat">已发布 <b class="text-emerald-600">{{ publishedCount }}</b></span>
+      <span class="kf-stat">草稿 <b>{{ draftCount }}</b></span>
+      <span class="kf-stat">归档 <b class="text-amber-600">{{ archivedCount }}</b></span>
+      <el-button type="primary" size="default" @click="openCreate">新建文档</el-button>
+      <el-button size="default" @click="fetchList">刷新</el-button>
+    </template>
 
-    <div class="rounded-[26px] border border-slate-200 bg-white px-4 py-4 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)] sm:px-6">
-      <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-        <div class="max-w-3xl">
-          <h2 class="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">知识库文档管理</h2>
-        </div>
-        <div class="flex flex-wrap gap-2 xl:justify-end">
-          <el-button type="primary" class="!ml-0" @click="openCreate">新建文档</el-button>
-          <el-button plain class="!ml-0" @click="fetchList">刷新列表</el-button>
-        </div>
-      </div>
-      <div class="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 px-3.5 py-2 text-xs leading-5 text-slate-600">
-        <span class="rounded-full bg-white px-2.5 py-1 font-medium text-slate-700">知识库目录</span>
-        <span class="break-all">{{ vaultPath || '未配置' }}</span>
-      </div>
-      <div class="mt-3 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-        <div class="rounded-2xl border border-sky-100 bg-sky-50/70 px-3.5 py-2.5">
-          <div class="text-xs font-medium text-sky-700">文档总数</div>
-          <div class="mt-1 text-xl font-semibold text-slate-900">{{ documentTotal }}</div>
-        </div>
-        <div class="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-3.5 py-2.5">
-          <div class="text-xs font-medium text-emerald-700">已发布</div>
-          <div class="mt-1 text-xl font-semibold text-slate-900">{{ publishedCount }}</div>
-        </div>
-        <div class="rounded-2xl border border-slate-200 bg-slate-50/80 px-3.5 py-2.5">
-          <div class="text-xs font-medium text-slate-500">草稿</div>
-          <div class="mt-1 text-xl font-semibold text-slate-900">{{ draftCount }}</div>
-        </div>
-        <div class="rounded-2xl border border-amber-100 bg-amber-50/70 px-3.5 py-2.5">
-          <div class="text-xs font-medium text-amber-700">已归档</div>
-          <div class="mt-1 text-xl font-semibold text-slate-900">{{ archivedCount }}</div>
-        </div>
-      </div>
-      <div class="mt-2.5 flex flex-wrap gap-2 text-xs font-medium">
-        <span class="rounded-full bg-slate-100 px-3 py-1 text-slate-600">累计大小 {{ formatSize(totalSize) }}</span>
-        <span class="rounded-full bg-slate-100 px-3 py-1 text-slate-600">最近更新 {{ latestUpdatedAt }}</span>
-      </div>
-    </div>
+    <input ref="importInput" type="file" accept=".md,text/markdown" multiple class="hidden" @change="handleImportChange" />
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_300px]">
       <div class="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_18px_50px_-34px_rgba(15,23,42,0.16)]">
@@ -574,5 +546,10 @@ onMounted(fetchList)
         <el-button type="primary" class="!ml-0" :loading="importSubmitting" @click="submitImport">开始导入</el-button>
       </template>
     </el-dialog>
-  </div>
+  </AdminPage>
 </template>
+
+<style scoped>
+.kf-stat { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #e5e7eb; border-radius: 4px; background: #fff; font-size: 12px; color: #475569; }
+.kf-stat b { color: #1f2937; font-weight: 600; }
+</style>

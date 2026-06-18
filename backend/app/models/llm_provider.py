@@ -20,6 +20,8 @@ class LlmProvider(Base):
     is_active: Mapped[int] = mapped_column(Integer, default=1)
     input_price: Mapped[float | None] = mapped_column(DECIMAL(10, 4), nullable=True, comment="输入价格 USD/百万tokens")
     output_price: Mapped[float | None] = mapped_column(DECIMAL(10, 4), nullable=True, comment="输出价格 USD/百万tokens")
+    cache_read_price: Mapped[float | None] = mapped_column(DECIMAL(10, 4), nullable=True, comment="缓存读取价 USD/百万tokens")
+    cache_write_price: Mapped[float | None] = mapped_column(DECIMAL(10, 4), nullable=True, comment="缓存写入价 USD/百万tokens")
     extra_config: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

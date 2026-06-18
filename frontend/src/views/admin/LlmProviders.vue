@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import api from '@/utils/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AdminPage from '@/components/AdminPage.vue'
 
 interface LlmRow {
   id: number
@@ -12,6 +13,8 @@ interface LlmRow {
   priority: number
   input_price: number | null
   output_price: number | null
+  cache_read_price: number | null
+  cache_write_price: number | null
   is_default: number
   is_active: number
 }
@@ -43,6 +46,8 @@ const defaultForm = () => ({
   priority: 100,
   input_price: null as number | null,
   output_price: null as number | null,
+  cache_read_price: null as number | null,
+  cache_write_price: null as number | null,
   is_default: 0,
   is_active: 1,
 })
@@ -78,6 +83,8 @@ function openEdit(row: LlmRow) {
     priority: row.priority ?? 100,
     input_price: row.input_price,
     output_price: row.output_price,
+    cache_read_price: row.cache_read_price,
+    cache_write_price: row.cache_write_price,
     is_default: row.is_default,
     is_active: row.is_active,
   }
@@ -95,6 +102,8 @@ async function handleSubmit() {
       priority: Number(form.value.priority),
       input_price: form.value.input_price,
       output_price: form.value.output_price,
+      cache_read_price: form.value.cache_read_price,
+      cache_write_price: form.value.cache_write_price,
       is_default: form.value.is_default,
       is_active: form.value.is_active,
     }
@@ -141,25 +150,21 @@ onMounted(fetchList)
 </script>
 
 <template>
-  <div>
-    <!-- 说明卡片 -->
-    <div class="mb-5 rounded-lg border border-blue-100 bg-blue-50 px-5 py-4 text-sm text-blue-700 leading-relaxed">
-      <div class="font-medium mb-1">多 Key 高可用配置说明</div>
-      <ul class="list-disc list-inside space-y-0.5 text-blue-600">
-        <li>每行代表一个 API Key，相同厂商可添加多行（主 Key + 备用 Key）</li>
-        <li><b>优先级</b>数字越小越先被调用；主 Key 建议设 1，备用 Key 设 2、3…</li>
-        <li>主 Key 出现首包超时（默认 30s）或返回 4xx/5xx 错误时，自动切换到下一个 Key</li>
-        <li>超时阈值可在「AI 配置」→ <code>stream_timeout</code> 中调整</li>
-      </ul>
-    </div>
+  <AdminPage title="大模型配置" subtitle="管理多 Key 高可用：主 Key + 备用 Key 自动切换">
+    <template #tools>
+      <el-button type="primary" size="default" @click="openCreate">添加模型</el-button>
+    </template>
 
-    <!-- 工具栏 -->
-    <div class="mb-4 flex justify-end">
-      <el-button type="primary" @click="openCreate">添加模型</el-button>
+    <!-- 说明 -->
+    <div class="mb-3 rounded border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+      每行代表一个 API Key，相同厂商可添加多行（主 Key + 备用 Key）；
+      优先级数字越小越先被调用；
+      主 Key 出现首包超时或 4xx/5xx 错误时自动切换到下一个；
+      超时阈值在「AI 配置」→ <code>stream_timeout</code> 中调整。
     </div>
 
     <!-- 表格 -->
-    <el-table :data="list" v-loading="loading" border stripe class="rounded-lg">
+    <el-table :data="list" v-loading="loading" border stripe size="small" class="rounded">
       <el-table-column prop="id" label="ID" width="64" />
       <el-table-column prop="name" label="名称" width="130" show-overflow-tooltip />
       <el-table-column label="厂商" width="130">
@@ -179,6 +184,12 @@ onMounted(fetchList)
       </el-table-column>
       <el-table-column label="输出价格" width="100" align="right">
         <template #default="{ row }">{{ row.output_price ?? '-' }}</template>
+      </el-table-column>
+      <el-table-column label="缓存读取价" width="110" align="right">
+        <template #default="{ row }">{{ row.cache_read_price ?? '-' }}</template>
+      </el-table-column>
+      <el-table-column label="缓存写入价" width="110" align="right">
+        <template #default="{ row }">{{ row.cache_write_price ?? '-' }}</template>
       </el-table-column>
       <el-table-column label="默认" width="72" align="center">
         <template #default="{ row }">
@@ -233,6 +244,12 @@ onMounted(fetchList)
         <el-form-item label="输出价格">
           <el-input v-model.number="form.output_price" placeholder="USD / 百万 tokens，如 15.0" />
         </el-form-item>
+        <el-form-item label="缓存读取价">
+          <el-input v-model.number="form.cache_read_price" placeholder="USD / 百万 tokens，留空表示不计费" />
+        </el-form-item>
+        <el-form-item label="缓存写入价">
+          <el-input v-model.number="form.cache_write_price" placeholder="USD / 百万 tokens，留空表示不计费" />
+        </el-form-item>
         <el-form-item label="设为默认">
           <el-switch v-model="form.is_default" :active-value="1" :inactive-value="0" />
         </el-form-item>
@@ -245,5 +262,5 @@ onMounted(fetchList)
         <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
-  </div>
+  </AdminPage>
 </template>

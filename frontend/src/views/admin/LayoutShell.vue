@@ -105,51 +105,51 @@ function handleLogout() {
 </script>
 
 <template>
-  <div class="flex h-screen bg-slate-100">
-    <aside class="admin-sidebar flex shrink-0 flex-col overflow-hidden text-white transition-all duration-200" :class="collapsed ? 'w-20' : 'w-64'">
-      <div class="flex h-16 shrink-0 items-center border-b border-white/10" :class="collapsed ? 'justify-center px-0' : 'gap-3 px-4'">
-        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-500/15 text-blue-100 ring-1 ring-white/10">
-          <el-icon :size="20"><Setting /></el-icon>
+  <div class="flex h-screen bg-[#f5f7fa]">
+    <aside class="admin-sidebar flex shrink-0 flex-col overflow-hidden text-slate-300 transition-all duration-200" :class="collapsed ? 'w-20' : 'w-60'">
+      <div class="flex h-14 shrink-0 items-center border-b border-white/10" :class="collapsed ? 'justify-center px-0' : 'gap-3 px-4'">
+        <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/20 text-blue-200 ring-1 ring-white/10">
+          <el-icon :size="18"><Setting /></el-icon>
         </div>
         <div v-if="!collapsed" class="min-w-0">
-          <div class="truncate text-lg font-semibold tracking-wide text-white">管理后台</div>
-          <div class="mt-0.5 text-[11px] text-slate-400">系统控制台</div>
+          <div class="truncate text-sm font-semibold text-white">管理后台</div>
+          <div class="mt-0.5 text-[10px] text-slate-400">系统控制台</div>
         </div>
       </div>
-      <nav class="admin-sidebar-nav flex-1 overflow-y-auto px-3 py-4">
+      <nav class="admin-sidebar-nav flex-1 overflow-y-auto px-2 py-3">
         <template v-for="item in menuItems" :key="isGroup(item) ? item.key : item.path">
           <!-- 单项 -->
           <div
             v-if="!isGroup(item)"
-            class="admin-menu-item group flex cursor-pointer items-center gap-3 rounded-2xl px-3 py-3 text-sm transition-all duration-200"
-            :class="activePath === item.path ? 'is-active bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg ring-1 ring-white/10' : 'text-slate-300 hover:bg-white/5 hover:text-white'"
+            class="admin-menu-item group flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors duration-150"
+            :class="activePath === item.path ? 'is-active bg-blue-500/15 text-white font-medium' : 'text-slate-400 hover:bg-white/5 hover:text-white'"
             @click="navigate(item.path)"
           >
             <span class="admin-menu-icon shrink-0">
-              <el-icon :size="18"><component :is="item.icon" /></el-icon>
+              <el-icon :size="16"><component :is="item.icon" /></el-icon>
             </span>
-            <span v-if="!collapsed" class="min-w-0 flex-1 truncate font-medium">{{ item.label }}</span>
+            <span v-if="!collapsed" class="min-w-0 flex-1 truncate">{{ item.label }}</span>
           </div>
           <!-- 分组 -->
           <div v-else>
             <div
-              class="admin-menu-item group flex cursor-pointer items-center gap-3 rounded-2xl px-3 py-3 text-sm transition-all duration-200 text-slate-300 hover:bg-white/5 hover:text-white"
+              class="admin-menu-item group flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors duration-150 text-slate-400 hover:bg-white/5 hover:text-white"
               @click="toggleGroup(item.key)"
             >
               <span class="admin-menu-icon shrink-0">
-                <el-icon :size="18"><component :is="item.icon" /></el-icon>
+                <el-icon :size="16"><component :is="item.icon" /></el-icon>
               </span>
-              <span v-if="!collapsed" class="min-w-0 flex-1 truncate font-medium">{{ item.label }}</span>
-              <el-icon v-if="!collapsed" :size="14" class="text-slate-400 transition-transform" :class="expanded[item.key] ? 'rotate-0' : '-rotate-90'">
+              <span v-if="!collapsed" class="min-w-0 flex-1 truncate">{{ item.label }}</span>
+              <el-icon v-if="!collapsed" :size="12" class="text-slate-500 transition-transform" :class="expanded[item.key] ? 'rotate-0' : '-rotate-90'">
                 <ArrowDown />
               </el-icon>
             </div>
-            <div v-show="expanded[item.key] && !collapsed" class="ml-3 mb-1 border-l border-white/10 pl-2">
+            <div v-show="expanded[item.key] && !collapsed" class="ml-2.5 mb-1 border-l border-white/10 pl-2">
               <div
                 v-for="child in item.children"
                 :key="child.path"
-                class="admin-menu-item admin-menu-child flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all duration-200"
-                :class="activePath === child.path ? 'is-active bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-white/5 hover:text-white'"
+                class="admin-menu-item admin-menu-child flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] transition-colors duration-150"
+                :class="activePath === child.path ? 'is-active bg-blue-500/15 text-white font-medium' : 'text-slate-500 hover:bg-white/5 hover:text-white'"
                 @click="navigate(child.path)"
               >
                 <span class="admin-menu-dot"></span>
@@ -161,36 +161,36 @@ function handleLogout() {
               <div
                 v-for="child in item.children"
                 :key="child.path"
-                class="admin-menu-item flex cursor-pointer items-center justify-center rounded-xl p-2 text-xs transition-all duration-200"
-                :class="activePath === child.path ? 'is-active bg-blue-500/30 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'"
+                class="admin-menu-item flex cursor-pointer items-center justify-center rounded-md p-1.5 text-xs transition-colors duration-150"
+                :class="activePath === child.path ? 'is-active bg-blue-500/15 text-white' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'"
                 @click="navigate(child.path)"
                 :title="child.label"
               >
-                <el-icon :size="14"><component :is="child.icon" /></el-icon>
+                <el-icon :size="13"><component :is="child.icon" /></el-icon>
               </div>
             </div>
           </div>
         </template>
       </nav>
-      <div class="shrink-0 border-t border-white/10 p-3">
-        <button class="admin-collapse-btn w-full rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-medium text-slate-300 transition hover:border-white/15 hover:bg-white/10 hover:text-white" @click="collapsed = !collapsed">
+      <div class="shrink-0 border-t border-white/10 p-2.5">
+        <button class="admin-collapse-btn w-full rounded-md border border-white/10 bg-white/5 py-2 text-xs font-medium text-slate-400 transition hover:bg-white/10 hover:text-white" @click="collapsed = !collapsed">
           {{ collapsed ? '展开' : '收起导航' }}
         </button>
       </div>
     </aside>
 
     <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
-      <header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white/90 px-6 shadow-sm backdrop-blur">
-        <h1 class="text-base font-semibold text-gray-700">
+      <header class="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-5">
+        <h1 class="text-sm font-semibold text-slate-800">
           {{ currentLabel }}
         </h1>
-        <div class="flex items-center gap-3">
-          <span class="cursor-pointer text-sm text-gray-500 hover:text-blue-600 transition-colors" @click="router.push('/admin/profile')">{{ adminStore.admin?.username || 'admin' }}</span>
-          <el-button size="small" text type="primary" @click="router.push('/admin/profile')">个人中心</el-button>
+        <div class="flex items-center gap-2">
+          <span class="cursor-pointer text-xs text-slate-500 hover:text-slate-900 transition-colors" @click="router.push('/admin/profile')">{{ adminStore.admin?.username || 'admin' }}</span>
+          <el-button size="small" text @click="router.push('/admin/profile')">个人中心</el-button>
           <el-button size="small" text type="danger" @click="handleLogout">退出</el-button>
         </div>
       </header>
-      <main class="flex-1 overflow-y-auto bg-slate-100 p-6">
+      <main class="flex-1 overflow-y-auto bg-[#f5f7fa] p-5">
         <RouterView />
       </main>
     </div>
@@ -199,17 +199,16 @@ function handleLogout() {
 
 <style scoped>
 .admin-sidebar {
-  background: linear-gradient(180deg, #182337 0%, #0f172a 100%);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.22);
+  background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
 }
 
 .admin-sidebar-nav {
   scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
 }
 
 .admin-sidebar-nav::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .admin-sidebar-nav::-webkit-scrollbar-track {
@@ -217,60 +216,51 @@ function handleLogout() {
 }
 
 .admin-sidebar-nav::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.42);
+  background: rgba(148, 163, 184, 0.32);
   border-radius: 9999px;
-  border: 2px solid transparent;
-  background-clip: content-box;
 }
 
 .admin-sidebar-nav::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.62);
-  border: 2px solid transparent;
-  background-clip: content-box;
+  background: rgba(148, 163, 184, 0.52);
 }
 
 .admin-menu-item {
-  margin-bottom: 6px;
+  margin-bottom: 2px;
 }
 
 .admin-menu-child {
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
 
 .admin-menu-dot {
   display: inline-block;
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
   border-radius: 9999px;
-  background: rgba(148, 163, 184, 0.5);
+  background: rgba(148, 163, 184, 0.55);
   flex-shrink: 0;
 }
 
 .admin-menu-child.is-active .admin-menu-dot {
-  background: white;
+  background: #0f172a;
 }
 
 .admin-menu-icon {
   display: flex;
-  height: 36px;
-  width: 36px;
+  height: 26px;
+  width: 26px;
   align-items: center;
   justify-content: center;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  background: rgba(255, 255, 255, 0.04);
-  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  color: inherit;
+  transition: color 0.15s ease;
 }
 
 .admin-menu-item:hover .admin-menu-icon {
-  transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.08);
+  color: #0f172a;
 }
 
 .admin-menu-item.is-active .admin-menu-icon {
-  border-color: rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.14);
+  color: #0f172a;
 }
 
 .admin-collapse-btn {

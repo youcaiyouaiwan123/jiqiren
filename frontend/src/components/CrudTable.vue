@@ -107,15 +107,15 @@ defineExpose({ fetchList })
 </script>
 
 <template>
-  <div>
-    <div class="flex items-center justify-between mb-4">
+  <div class="rounded-lg border border-slate-200 bg-white p-4">
+    <div class="flex items-center justify-between mb-3">
       <div class="flex items-center gap-3">
-        <el-input v-if="searchable" v-model="keyword" :placeholder="searchPlaceholder || '搜索...'" clearable style="width: 240px" @keyup.enter="fetchList" @clear="fetchList" />
+        <el-input v-if="searchable" v-model="keyword" :placeholder="searchPlaceholder || '搜索...'" clearable size="default" style="width: 240px" @keyup.enter="fetchList" @clear="fetchList" />
       </div>
-      <el-button type="primary" @click="openCreate">{{ createBtnLabel || '新增' }}</el-button>
+      <el-button type="primary" size="default" @click="openCreate">{{ createBtnLabel || '新增' }}</el-button>
     </div>
 
-    <el-table :data="list" v-loading="loading" border stripe style="width: 100%" class="rounded-lg">
+    <el-table :data="list" v-loading="loading" border stripe size="small" style="width: 100%" class="rounded">
       <el-table-column v-for="col in columns" :key="col.prop" :prop="col.prop" :label="col.label" :width="col.width" :show-overflow-tooltip="true">
         <template #default="{ row }">
           <template v-if="col.type === 'tag' && col.tagMap">

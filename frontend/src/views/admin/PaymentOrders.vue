@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/utils/api'
 import type { SubscribeOrder } from '@/types'
+import AdminPage from '@/components/AdminPage.vue'
 
 const loading = ref(false)
 const list = ref<SubscribeOrder[]>([])
@@ -87,23 +88,22 @@ onMounted(fetchList)
 </script>
 
 <template>
-  <div class="space-y-6">
-    <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="flex flex-wrap items-center gap-3">
-        <el-input v-model="keyword" placeholder="搜索订单号 / 用户昵称 / 手机 / 邮箱" clearable style="width: 280px" @keyup.enter="fetchList" />
-        <el-select v-model="status" clearable placeholder="订单状态" style="width: 140px">
-          <el-option label="待处理" value="pending" />
-          <el-option label="已成功" value="success" />
-          <el-option label="已驳回" value="failed" />
-        </el-select>
-        <el-select v-model="channel" clearable placeholder="支付渠道" style="width: 140px">
-          <el-option label="微信" value="wechat" />
-          <el-option label="支付宝" value="alipay" />
-        </el-select>
-        <el-button type="primary" @click="fetchList">查询</el-button>
-      </div>
+  <AdminPage title="订单管理">
+    <template #tools>
+      <el-input v-model="keyword" placeholder="搜索订单号 / 用户" clearable size="default" style="width: 240px" @keyup.enter="fetchList" />
+      <el-select v-model="status" clearable placeholder="状态" size="default" style="width: 110px">
+        <el-option label="待处理" value="pending" />
+        <el-option label="已成功" value="success" />
+        <el-option label="已驳回" value="failed" />
+      </el-select>
+      <el-select v-model="channel" clearable placeholder="渠道" size="default" style="width: 110px">
+        <el-option label="微信" value="wechat" />
+        <el-option label="支付宝" value="alipay" />
+      </el-select>
+      <el-button type="primary" size="default" @click="fetchList">查询</el-button>
+    </template>
 
-      <el-table :data="list" v-loading="loading" stripe border class="mt-6" style="width: 100%">
+      <el-table :data="list" v-loading="loading" stripe border size="small" style="width: 100%">
         <el-table-column prop="order_no" label="订单号" min-width="180" />
         <el-table-column label="用户" min-width="180">
           <template #default="{ row }">
@@ -128,7 +128,7 @@ onMounted(fetchList)
         <el-table-column prop="created_at" label="创建时间" min-width="170" />
         <el-table-column prop="paid_at" label="生效时间" min-width="170" />
         <el-table-column prop="remark" label="备注" min-width="180" show-overflow-tooltip />
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="180">
           <template #default="{ row }">
             <el-button v-if="row.status === 'pending'" size="small" text type="success" @click="quickApprove(row)">通过</el-button>
             <el-button v-if="row.status === 'pending'" size="small" text type="danger" @click="openAction(row, 'reject')">驳回</el-button>
@@ -140,7 +140,6 @@ onMounted(fetchList)
       <div v-if="total > 20" class="mt-4 flex justify-end">
         <el-pagination v-model:current-page="page" :page-size="20" :total="total" layout="prev, pager, next" background @current-change="fetchList" />
       </div>
-    </section>
 
     <el-dialog v-model="remarkDialogVisible" :title="currentAction === 'approve' ? '通过订单' : '驳回订单'" width="520px" destroy-on-close>
       <div class="mb-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
@@ -160,5 +159,5 @@ onMounted(fetchList)
         </el-button>
       </template>
     </el-dialog>
-  </div>
+  </AdminPage>
 </template>

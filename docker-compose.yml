@@ -87,6 +87,8 @@ services:
       KNOWLEDGE_GIT_BRANCH: ${KNOWLEDGE_GIT_BRANCH:-main}
       # --- 时区 ---
       TZ: Asia/Shanghai
+      # --- 语音转文字模型大小（small 省内存，medium 更准；小机器建议 small）---
+      WHISPER_MODEL_SIZE: ${WHISPER_MODEL_SIZE:-small}
       # --- HuggingFace 国内镜像，避免下模型超时 ---
       HF_ENDPOINT: https://hf-mirror.com
     volumes:

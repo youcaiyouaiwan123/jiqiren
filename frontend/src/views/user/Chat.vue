@@ -36,15 +36,7 @@ const renamingConvId = ref<number | null>(null)
 const renameText = ref('')
 const feedbackSubmitting = ref<Set<number>>(new Set())
 
-const AI_AVATAR_FILE = 'abj_new.png'
-const aiAvatarUrl = `${import.meta.env.BASE_URL}${AI_AVATAR_FILE}`
-const aiAvatarLoadFailed = ref(false)
-
 const ACTIVE_CONVERSATION_STORAGE_KEY = 'user_chat_active_conv_id'
-
-function handleAiAvatarError() {
-  aiAvatarLoadFailed.value = true
-}
 
 function persistActiveConversationId(convId: number | null) {
   if (convId == null) {
@@ -832,8 +824,7 @@ onUnmounted(() => {
         <!-- AI greeting (shown when no real messages yet, not sent to backend) -->
         <div v-if="!messages.length && !streamText" class="msg-row assistant">
           <div class="msg-avatar ai">
-            <img v-if="aiAvatarUrl && !aiAvatarLoadFailed" :src="aiAvatarUrl" alt="AI avatar" class="msg-avatar-img" @error="handleAiAvatarError" />
-            <svg v-else width="20" height="20" viewBox="0 0 20 20" fill="none"><rect width="20" height="20" rx="6" fill="#f97316"/><circle cx="7.5" cy="8.5" r="1.5" fill="white"/><circle cx="12.5" cy="8.5" r="1.5" fill="white"/><path d="M7.5 13q2.5 2 5 0" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
+            <img src="/abj_new.png" alt="阿宝姐" class="msg-avatar-img" />
           </div>
           <div class="msg-body">
             <div class="msg-bubble assistant">你好呀！很高兴见到你 ❤️ 我是阿宝姐的 AI 分身～你直接把问题抛给我就行，我会尽量帮你快速理清楚～如果是安装、配置、Claude Code、龙虾、知识库、飞书这些问题，我都可以陪你一起看看～</div>
@@ -843,8 +834,7 @@ onUnmounted(() => {
         <!-- Messages -->
         <div v-for="msg in messages" :key="msg.id" class="msg-row" :class="msg.role">
           <div v-if="msg.role === 'assistant'" class="msg-avatar ai">
-            <img v-if="aiAvatarUrl && !aiAvatarLoadFailed" :src="aiAvatarUrl" alt="AI avatar" class="msg-avatar-img" @error="handleAiAvatarError" />
-            <svg v-else width="20" height="20" viewBox="0 0 20 20" fill="none"><rect width="20" height="20" rx="6" fill="#2563eb"/><circle cx="7.5" cy="8.5" r="1.5" fill="white"/><circle cx="12.5" cy="8.5" r="1.5" fill="white"/><path d="M7.5 13q2.5 2 5 0" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
+            <img src="/abj_new.png" alt="阿宝姐" class="msg-avatar-img" />
           </div>
           <div class="msg-body">
             <div v-if="msg.images?.length" class="msg-images">
@@ -853,7 +843,7 @@ onUnmounted(() => {
             <div class="msg-bubble" :class="msg.role">{{ msg.content }}</div>
             <!-- retrieval status card hidden from user view -->
             <div class="msg-time">{{ formatTime(msg.created_at) }}</div>
-            <div v-if="msg.role === 'assistant'" class="msg-feedback">
+            <div v-if="msg.role === 'assistant' && !msg.rating" class="msg-feedback">
               <button
                 class="feedback-btn"
                 :class="{ active: msg.rating === 'like' }"
@@ -878,8 +868,7 @@ onUnmounted(() => {
         <!-- Thinking -->
         <div v-if="thinking && !streamText" class="msg-row assistant">
           <div class="msg-avatar ai">
-            <img v-if="aiAvatarUrl && !aiAvatarLoadFailed" :src="aiAvatarUrl" alt="AI avatar" class="msg-avatar-img" @error="handleAiAvatarError" />
-            <svg v-else width="20" height="20" viewBox="0 0 20 20" fill="none"><rect width="20" height="20" rx="6" fill="#2563eb"/><circle cx="7.5" cy="8.5" r="1.5" fill="white"/><circle cx="12.5" cy="8.5" r="1.5" fill="white"/><path d="M7.5 13q2.5 2 5 0" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
+            <img src="/abj_new.png" alt="阿宝姐" class="msg-avatar-img" />
           </div>
           <div class="msg-body">
             <div class="msg-bubble assistant thinking-bubble">
@@ -891,8 +880,7 @@ onUnmounted(() => {
         <!-- Error -->
         <div v-if="errorText" class="msg-row assistant">
           <div class="msg-avatar ai">
-            <img v-if="aiAvatarUrl && !aiAvatarLoadFailed" :src="aiAvatarUrl" alt="AI avatar" class="msg-avatar-img" @error="handleAiAvatarError" />
-            <svg v-else width="20" height="20" viewBox="0 0 20 20" fill="none"><rect width="20" height="20" rx="6" fill="#ef4444"/><circle cx="7.5" cy="8.5" r="1.5" fill="white"/><circle cx="12.5" cy="8.5" r="1.5" fill="white"/><path d="M7.5 13q2.5-2 5 0" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
+            <img src="/abj_new.png" alt="阿宝姐" class="msg-avatar-img" />
           </div>
           <div class="msg-body">
             <div class="msg-bubble assistant error-bubble">{{ errorText }}</div>
@@ -902,8 +890,7 @@ onUnmounted(() => {
         <!-- Streaming -->
         <div v-if="streamText" class="msg-row assistant">
           <div class="msg-avatar ai">
-            <img v-if="aiAvatarUrl && !aiAvatarLoadFailed" :src="aiAvatarUrl" alt="AI avatar" class="msg-avatar-img" @error="handleAiAvatarError" />
-            <svg v-else width="20" height="20" viewBox="0 0 20 20" fill="none"><rect width="20" height="20" rx="6" fill="#2563eb"/><circle cx="7.5" cy="8.5" r="1.5" fill="white"/><circle cx="12.5" cy="8.5" r="1.5" fill="white"/><path d="M7.5 13q2.5 2 5 0" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
+            <img src="/abj_new.png" alt="阿宝姐" class="msg-avatar-img" />
           </div>
           <div class="msg-body">
             <div class="msg-bubble assistant">{{ streamText }}<span class="cursor">|</span></div>
@@ -1188,7 +1175,7 @@ onUnmounted(() => {
   overflow: hidden; margin-bottom: 20px; flex-shrink: 0;
   box-shadow: 0 4px 20px rgba(249,115,22,0.25);
 }
-.empty-avatar-img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.5); display: block; }
+.empty-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .empty-title { font-size: 20px; font-weight: 700; color: #7c3300; margin-bottom: 8px; text-align: center; }
 .empty-desc { font-size: 14px; color: #a16040; text-align: center; line-height: 1.7; margin-bottom: 24px; }
 .empty-hints { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
@@ -1208,9 +1195,9 @@ onUnmounted(() => {
   width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center;
   justify-content: center; flex-shrink: 0; margin-top: 2px; overflow: hidden;
 }
-.msg-avatar.ai { width: 52px; height: 52px; border-radius: 12px; background: #fff7ed; overflow: hidden; }
+.msg-avatar.ai { width: 52px; height: 52px; border-radius: 50%; border: 2px solid #fff; background: #fff7ed; overflow: hidden; box-shadow: 0 2px 10px rgba(249,115,22,0.2); box-sizing: border-box; }
 .msg-avatar.user { background: #f97316; }
-.msg-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; transform: scale(1.5); }
+.msg-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
 .msg-body { min-width: 0; max-width: calc(100% - 60px); }
 .msg-bubble {
   padding: 10px 16px; border-radius: 16px; font-size: 15px; line-height: 1.7;
@@ -1386,7 +1373,7 @@ onUnmounted(() => {
   .chat-footer { padding: 8px 12px 10px; }
   .msg-row { padding: 4px 12px; max-width: 100%; }
   .msg-bubble { font-size: 14px; padding: 9px 14px; }
-  .msg-avatar.ai { width: 34px; height: 34px; border-radius: 10px; }
+  .msg-avatar.ai { width: 34px; height: 34px; border-radius: 50%; }
   .msg-body { max-width: calc(100% - 50px); }
   .input-bar { border-radius: 12px; padding: 3px 3px 3px 8px; }
   .chat-input { font-size: 16px; padding: 10px 0; }

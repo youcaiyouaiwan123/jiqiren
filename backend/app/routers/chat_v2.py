@@ -359,7 +359,17 @@ async def send_message(
 
                 input_price = usage_info.get("input_price", 0.0)
                 output_price = usage_info.get("output_price", 0.0)
-                cost_usd = round((in_tokens * input_price + out_tokens * output_price) / 1_000_000, 6)
+                cache_read_price = usage_info.get("cache_read_price", 0.0)
+                cache_write_price = usage_info.get("cache_write_price", 0.0)
+                cache_read_tokens = usage_info.get("cache_read_tokens", 0)
+                cache_creation_tokens = usage_info.get("cache_creation_tokens", 0)
+                cost_usd = round(
+                    (in_tokens * input_price
+                     + out_tokens * output_price
+                     + cache_read_tokens * cache_read_price
+                     + cache_creation_tokens * cache_write_price) / 1_000_000,
+                    6,
+                )
                 sse_db.add(
                     TokenUsage(
                         user_id=user_id,
@@ -367,6 +377,8 @@ async def send_message(
                         model=model_name,
                         input_tokens=in_tokens,
                         output_tokens=out_tokens,
+                        cache_read_tokens=cache_read_tokens,
+                        cache_creation_tokens=cache_creation_tokens,
                         cost_usd=cost_usd,
                     )
                 )

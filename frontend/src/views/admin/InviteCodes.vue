@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import api from '@/utils/api'
 import { ElMessage } from 'element-plus'
+import AdminPage from '@/components/AdminPage.vue'
 
 interface InviteCodeRow {
   id: number
@@ -110,16 +111,14 @@ onMounted(fetchList)
 </script>
 
 <template>
-  <div>
-    <div class="mb-4 flex items-center justify-between">
-      <span class="text-sm text-gray-500">共 {{ total }} 条</span>
-      <div class="flex gap-2">
-        <el-button @click="exportCsv">导出 CSV</el-button>
-        <el-button type="primary" @click="genDialog = true; generatedCodes = []">生成邀请码</el-button>
-      </div>
-    </div>
+  <AdminPage title="邀请码">
+    <template #tools>
+      <span class="text-xs text-gray-400">共 {{ total }} 条</span>
+      <el-button size="default" @click="exportCsv">导出 CSV</el-button>
+      <el-button type="primary" size="default" @click="genDialog = true; generatedCodes = []">生成邀请码</el-button>
+    </template>
 
-    <el-table :data="list" v-loading="loading" border stripe class="rounded-lg">
+    <el-table :data="list" v-loading="loading" border stripe size="small" class="rounded">
       <el-table-column prop="id" label="ID" width="70" />
       <el-table-column prop="code" label="邀请码" width="200" />
       <el-table-column prop="remark" label="备注" min-width="120" show-overflow-tooltip />
@@ -186,5 +185,5 @@ onMounted(fetchList)
         <el-button type="primary" @click="generate">生成</el-button>
       </template>
     </el-dialog>
-  </div>
+  </AdminPage>
 </template>
