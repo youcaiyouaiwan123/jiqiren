@@ -89,6 +89,24 @@ const filteredConversations = computed(() => {
   return conversations.value.filter(c => (c.title || '').toLowerCase().includes(q))
 })
 
+// 侧边栏默认只展示最近 N 条会话，避免一次铺出太多；点「显示更多」逐步加载。
+// 搜索状态下不限制，直接显示全部匹配结果。
+const CONV_PAGE_SIZE = 20
+const convDisplayLimit = ref(CONV_PAGE_SIZE)
+
+const visibleConversations = computed(() => {
+  if (searchQuery.value.trim()) return filteredConversations.value
+  return filteredConversations.value.slice(0, convDisplayLimit.value)
+})
+
+const hasMoreConversations = computed(
+  () => !searchQuery.value.trim() && filteredConversations.value.length > convDisplayLimit.value,
+)
+
+function showMoreConversations() {
+  convDisplayLimit.value += CONV_PAGE_SIZE
+}
+
 interface ConvGroup { label: string; items: Conversation[] }
 
 const groupedConversations = computed<ConvGroup[]>(() => {
@@ -101,7 +119,7 @@ const groupedConversations = computed<ConvGroup[]>(() => {
     today: [], yesterday: [], week: [], older: [],
   }
 
-  for (const c of filteredConversations.value) {
+  for (const c of visibleConversations.value) {
     const d = new Date(c.updated_at || c.created_at || '')
     if (d >= todayStart) groups.today.push(c)
     else if (d >= yesterdayStart) groups.yesterday.push(c)
@@ -366,6 +384,7 @@ async function sendMessage() {
                 content: doneData.text,
                 images: doneData.images || [],
                 docs: doneData.docs || [],
+                links: doneData.links || [],
                 retrieval: doneData.retrieval || null,
                 created_at: new Date().toISOString(),
               })
@@ -739,6 +758,10 @@ onUnmounted(() => {
           </div>
         </template>
 
+        <button v-if="hasMoreConversations" class="conv-load-more" @click="showMoreConversations">
+          显示更多
+        </button>
+
         <div v-if="!filteredConversations.length" class="sidebar-empty">
           <el-icon :size="32" color="#475569"><ChatDotRound /></el-icon>
           <p v-if="searchQuery">未找到匹配的对话</p>
@@ -842,6 +865,20 @@ onUnmounted(() => {
             </div>
             <div class="msg-bubble" :class="msg.role">{{ msg.content }}</div>
             <!-- retrieval status card hidden from user view -->
+            <div v-if="msg.role === 'assistant' && msg.links?.length" class="doc-list">
+              <div class="doc-card-label">相关链接</div>
+              <a
+                v-for="(lk, lkIdx) in msg.links"
+                :key="lkIdx"
+                class="doc-card doc-link"
+                :href="lk.url"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <div class="doc-title">{{ lk.title }}</div>
+                <div class="doc-source">{{ lk.url }}</div>
+              </a>
+            </div>
             <div class="msg-time">{{ formatTime(msg.created_at) }}</div>
             <div v-if="msg.role === 'assistant' && !msg.rating" class="msg-feedback">
               <button
@@ -1072,6 +1109,12 @@ onUnmounted(() => {
 
 .sidebar-empty { padding: 40px 20px; text-align: center; color: rgba(0,0,0,0.5); font-size: 13px; }
 .sidebar-empty p { margin-top: 8px; }
+.conv-load-more {
+  display: block; width: calc(100% - 8px); margin: 4px auto 10px; padding: 8px;
+  border: none; background: transparent; color: #a16040; font-size: 13px;
+  cursor: pointer; border-radius: 8px; transition: background 0.15s;
+}
+.conv-load-more:hover { background: rgba(0,0,0,0.04); color: #ea580c; }
 
 .sidebar-footer { padding: 12px; border-top: 1px solid rgba(0,0,0,0.1); }
 .user-info { display: flex; align-items: center; gap: 10px; }
@@ -1206,7 +1249,10 @@ onUnmounted(() => {
 .msg-bubble.user { background: #f97316; color: #fff; border-bottom-right-radius: 4px; }
 .msg-bubble.assistant { background: #fff; color: #3d1f00; border: 1px solid #ffe4cc; border-bottom-left-radius: 4px; }
 .doc-list { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.doc-card-label { font-size: 12px; font-weight: 600; color: #a16040; }
 .doc-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; }
+.doc-link { display: block; text-decoration: none; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.doc-link:hover { background: #fff7ed; border-color: #fdba74; }
 .doc-title { font-size: 12px; font-weight: 600; color: #1e293b; }
 .doc-source { margin-top: 2px; font-size: 11px; color: #2563eb; word-break: break-all; }
 .doc-snippet { margin-top: 6px; font-size: 12px; line-height: 1.6; color: #64748b; }

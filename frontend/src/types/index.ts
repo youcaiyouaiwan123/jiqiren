@@ -119,6 +119,11 @@ export interface KnowledgeDoc {
   snippet: string
 }
 
+export interface RelatedLink {
+  title: string
+  url: string
+}
+
 export interface RetrievalInfo {
   enabled?: boolean
   status: 'disabled' | 'success' | 'miss' | 'failed'
@@ -131,6 +136,7 @@ export interface RetrievalInfo {
   message?: string
   error?: string
   docs?: KnowledgeDoc[]
+  links?: RelatedLink[]
 }
 
 export interface ChatImage {
@@ -144,6 +150,7 @@ export interface ChatMessage {
   content: string
   images: ChatImage[]
   docs: KnowledgeDoc[]
+  links?: RelatedLink[]
   retrieval?: RetrievalInfo | null
   rating?: 'like' | 'dislike' | null
   created_at: string | null
@@ -156,6 +163,7 @@ export interface ChatDoneData {
   text: string
   images: ChatImage[]
   docs: KnowledgeDoc[]
+  links?: RelatedLink[]
   retrieval?: RetrievalInfo | null
   usage: { model: string; input_tokens: number; output_tokens: number; cost_usd: number }
   quota: { free_chats_left: number; subscribe_plan: string; subscribe_expire: string | null }

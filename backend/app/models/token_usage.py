@@ -10,7 +10,7 @@ class TokenUsage(Base):
     __tablename__ = "token_usage"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
     message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     model: Mapped[str | None] = mapped_column(String(50))
     input_tokens: Mapped[int] = mapped_column(Integer, nullable=False)

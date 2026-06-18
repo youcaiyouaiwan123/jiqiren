@@ -82,13 +82,16 @@ async def _load_embedding_provider(db: AsyncSession, provider_name: str | None) 
     raise RuntimeError(f"未找到可用的 embedding 厂商配置: {provider_key}")
 
 
-async def _embed_openai(provider: LlmProvider, model: str, texts: Sequence[str]) -> list[list[float]]:
+async def _embed_openai(provider: LlmProvider, model: str, texts: Sequence[str], runtime_meta: dict[str, Any] | None = None) -> list[list[float]]:
     base_url = _normalize_api_base(_normalize_provider(provider.provider), provider.api_url)
     client = AsyncOpenAI(
         api_key=provider.api_key,
         **({"base_url": base_url} if base_url else {}),
     )
     response = await client.embeddings.create(model=model, input=list(texts))
+    usage = getattr(response, "usage", None)
+    if runtime_meta is not None and usage is not None:
+        runtime_meta["tokens"] = getattr(usage, "total_tokens", 0) or getattr(usage, "prompt_tokens", 0) or 0
     return [item.embedding for item in response.data]
 
 
@@ -164,10 +167,11 @@ async def embed_texts(
         runtime_meta["model"] = model
         runtime_meta["base_url"] = base_url or ""
         runtime_meta["provider_row_id"] = provider.id
+        runtime_meta["input_price"] = float(provider.input_price or 0)
     logger.info("[知识库] 开始 embedding | provider=%s model=%s count=%s", provider_key, model, len(clean_texts))
     try:
         if provider_key in {"openai", "zhipu"}:
-            return await _embed_openai(provider, model, clean_texts)
+            return await _embed_openai(provider, model, clean_texts, runtime_meta)
         if provider_key == "gemini":
             return await _embed_google(provider, model, clean_texts)
         raise RuntimeError(f"暂不支持的 embedding 厂商: {provider_key}")

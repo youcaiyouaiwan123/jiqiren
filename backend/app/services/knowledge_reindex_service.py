@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.models.ai_config import AiConfig
+from app.models.token_usage import TokenUsage
 from app.services.embedding_service import embed_texts
 from app.services.knowledge_config_service import build_effective_knowledge_config, load_knowledge_config_map
 from app.services.knowledge_index import add_knowledge_chunks, reset_knowledge_index
@@ -52,6 +53,8 @@ async def reindex_knowledge(db: AsyncSession) -> dict[str, Any]:
             **stats,
         }
 
+    emb_tokens_total = 0
+    emb_meta: dict[str, Any] = {}
     for offset in range(0, len(chunks), _BATCH_SIZE):
         batch = chunks[offset: offset + _BATCH_SIZE]
         texts = [
@@ -70,7 +73,9 @@ async def reindex_knowledge(db: AsyncSession) -> dict[str, Any]:
             texts,
             provider_name=provider_name,
             model_name=model_name,
+            runtime_meta=emb_meta,
         )
+        emb_tokens_total += emb_meta.get("tokens") or 0
         if len(embeddings) != len(batch):
             raise RuntimeError("知识库 embedding 返回数量异常，请检查 embedding 配置")
         add_knowledge_chunks(
@@ -91,6 +96,32 @@ async def reindex_knowledge(db: AsyncSession) -> dict[str, Any]:
         logger.info("[知识库] 已索引 %s/%s chunks", min(offset + _BATCH_SIZE, len(chunks)), len(chunks))
 
     logger.info("[知识库] 索引重建完成")
+    # 记录本次重建索引的 embedding 用量（embedding 费用大头在这里）。
+    # user_id=None 表示系统级用量，不归属具体用户；仍会按模型计入费用统计。
+    if emb_tokens_total > 0:
+        emb_price = float(emb_meta.get("input_price") or 0)
+        emb_model = emb_meta.get("model") or model_name or "embedding"
+        try:
+            db.add(
+                TokenUsage(
+                    user_id=None,
+                    message_id=None,
+                    model=emb_model,
+                    input_tokens=emb_tokens_total,
+                    output_tokens=0,
+                    cost_usd=round(emb_tokens_total * emb_price / 1_000_000, 6),
+                )
+            )
+            await db.flush()
+            logger.info("[知识库] 已记录重建索引 embedding 用量 | model=%s tokens=%s", emb_model, emb_tokens_total)
+        except Exception:
+            logger.exception("[知识库] 记录 embedding 用量失败（不影响索引结果）")
+    # 文档可能新增/修改了链接，清空「相关链接」缓存，下次提问时按新文档重建
+    try:
+        from app.services.ai_service import clear_link_caches
+        clear_link_caches()
+    except Exception:
+        logger.exception("[知识库] 清空链接缓存失败（不影响索引结果）")
     return {
         **runtime_cfg,
         "embedding_provider": provider_name,

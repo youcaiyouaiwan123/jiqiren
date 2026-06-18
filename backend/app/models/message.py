@@ -17,6 +17,7 @@ class Message(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     images: Mapped[list | None] = mapped_column(JSON, nullable=True)
     docs: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    links: Mapped[list | None] = mapped_column(JSON, nullable=True)
     input_tokens: Mapped[int] = mapped_column(Integer, default=0)
     output_tokens: Mapped[int] = mapped_column(Integer, default=0)
     feishu_synced: Mapped[int] = mapped_column(Integer, default=0)

@@ -255,6 +255,7 @@ async def get_messages(
             "content": message.content,
             "images": message.images or [],
             "docs": message.docs or [],
+            "links": message.links or [],
             "rating": feedback_map.get(message.id) if message.role == "assistant" else None,
             "created_at": message.created_at.isoformat() if message.created_at else None,
         }
@@ -339,11 +340,13 @@ async def send_message(
                 in_tokens = usage_info.get("input_tokens", 0)
                 out_tokens = usage_info.get("output_tokens", 0)
                 docs = retrieval_info.get("docs", [])
-                # doc_recommend=false 时不向前端返回参考文档列表
+                links = retrieval_info.get("links", [])
+                # doc_recommend=false 时不向前端返回参考文档列表与相关链接
                 from app.services.ai_service import _load_ai_config, _parse_bool as _ai_parse_bool
                 _ai_cfg_for_docs = await _load_ai_config(db)
                 if not _ai_parse_bool(_ai_cfg_for_docs.get("doc_recommend"), True):
                     docs = []
+                    links = []
 
                 ai_msg = Message(
                     conversation_id=conv_id,
@@ -351,6 +354,7 @@ async def send_message(
                     role="assistant",
                     content=full_text,
                     docs=docs,
+                    links=links,
                     input_tokens=in_tokens,
                     output_tokens=out_tokens,
                 )
@@ -382,6 +386,22 @@ async def send_message(
                         cost_usd=cost_usd,
                     )
                 )
+                # 记录本次知识库检索的 embedding 用量（让 embedding 也体现在费用统计里）
+                emb_tokens = retrieval_info.get("embedding_tokens") or 0
+                if emb_tokens:
+                    emb_model = retrieval_info.get("model") or "embedding"
+                    emb_price = retrieval_info.get("embedding_input_price") or 0.0
+                    emb_cost = round(emb_tokens * emb_price / 1_000_000, 6)
+                    sse_db.add(
+                        TokenUsage(
+                            user_id=user_id,
+                            message_id=ai_msg.id,
+                            model=emb_model,
+                            input_tokens=emb_tokens,
+                            output_tokens=0,
+                            cost_usd=emb_cost,
+                        )
+                    )
                 await sse_db.execute(
                     update(Conversation)
                     .where(Conversation.id == conv_id)
@@ -395,6 +415,7 @@ async def send_message(
                     "text": full_text,
                     "images": [],
                     "docs": docs,
+                    "links": links,
                     "retrieval": retrieval_info,
                     "usage": {
                         "model": model_name,

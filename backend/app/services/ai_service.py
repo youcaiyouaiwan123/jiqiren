@@ -193,6 +193,204 @@ def _fallback_keyword_matches(message: str, vault_path: str, top_k: int, min_sco
     return matches[: max(1, top_k)]
 
 
+# ──────────────────── 辅助：从知识原文提取「相关链接」 ────────────────────
+# 只提取 markdown 锚文本链接 [锚文本](url)，忽略裸 URL（裸 URL 多为 npm 镜像 /
+# 127.0.0.1 等配置值，不是可推荐的文档）。链接全程来自知识库原文，不经大模型生成。
+_MD_LINK_RE = re.compile(r"\[([^\[\]]+?)\]\((https?://[^\s)]+)\)")
+_URL_TRAILING_CHARS = "，。、；！？,.;`)）【】>》"
+
+
+def _clean_link_url(url: str) -> str:
+    """去掉 url 尾部粘连的中文标点 / 反引号 / 右括号等。"""
+    return url.rstrip(_URL_TRAILING_CHARS).strip()
+
+
+# 全库「链接目录」缓存：知识文件极少在运行时变动，构建一次即可（重建索引/改文件后
+# 需重启 backend 才刷新）。key = vault_path。
+_LINK_CATALOG_CACHE: dict[str, list[dict[str, str]]] = {}
+
+
+def _load_link_catalog(vault_path: str) -> list[dict[str, str]]:
+    """
+    扫描知识库所有 .md 文件，提取全部 markdown 链接构成「链接目录」。
+    每条 {anchor, url, desc}，desc=链接所在整行文字（用于相关性匹配）。
+    解决「带链接的文档没进向量检索 top-k 时拿不到链接」的问题。
+    """
+    if not vault_path:
+        return []
+    cached = _LINK_CATALOG_CACHE.get(vault_path)
+    if cached is not None:
+        return cached
+    catalog: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    try:
+        for md_file in sorted(Path(vault_path).rglob("*.md")):
+            try:
+                text = md_file.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            for line in text.splitlines():
+                for match in _MD_LINK_RE.finditer(line):
+                    anchor = (match.group(1) or "").strip()
+                    url = _clean_link_url(match.group(2) or "")
+                    if not anchor or not url or (anchor, url) in seen:
+                        continue
+                    seen.add((anchor, url))
+                    catalog.append({"anchor": anchor, "url": url, "desc": line.strip()})
+    except Exception:
+        logger.exception("[知识库] 构建链接目录失败 | vault=%s", vault_path)
+    _LINK_CATALOG_CACHE[vault_path] = catalog
+    logger.info("[知识库] 链接目录已构建 | %s 条 | vault=%s", len(catalog), vault_path)
+    return catalog
+
+
+def _cosine(a: list[float], b: list[float]) -> float:
+    """余弦相似度；任一为空或零向量返回 0。"""
+    if not a or not b:
+        return 0.0
+    dot = sum(x * y for x, y in zip(a, b))
+    na = sum(x * x for x in a) ** 0.5
+    nb = sum(y * y for y in b) ** 0.5
+    return dot / (na * nb) if na and nb else 0.0
+
+
+# 链接目录的向量缓存：key=(vault_path, provider, model)。首次构建时把每条
+# 「锚文本 + 说明」向量化一次，之后命中缓存。embedding 失败则返回无向量目录、不缓存。
+_LINK_VECTORS_CACHE: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+
+
+def clear_link_caches() -> None:
+    """清空链接目录与链接向量缓存。文档/链接更新并重建索引后调用，使下次提问按新文档重建。"""
+    _LINK_CATALOG_CACHE.clear()
+    _LINK_VECTORS_CACHE.clear()
+    logger.info("[知识库] 链接缓存已清空，将在下次提问时按最新文档重建")
+
+
+async def _ensure_link_vectors(
+    db: AsyncSession,
+    vault_path: str,
+    provider_name: str,
+    model_name: str | None,
+) -> list[dict[str, Any]]:
+    """返回链接目录条目（尽量带 'vector' 字段，用于语义匹配）。"""
+    catalog = _load_link_catalog(vault_path)
+    if not catalog:
+        return []
+    key = (vault_path, provider_name, model_name or "")
+    cached = _LINK_VECTORS_CACHE.get(key)
+    if cached is not None:
+        return cached
+    texts = [f"{e['anchor']}。{e['desc']}" for e in catalog]
+    vecs: list[list[float]] = []
+    try:
+        # text-embedding-v4 等千问模型单批上限 10，分批向量化再拼接
+        for start in range(0, len(texts), 10):
+            batch = await embed_texts(
+                db, texts[start:start + 10], provider_name=provider_name, model_name=model_name, runtime_meta={}
+            )
+            vecs.extend(batch)
+    except Exception:
+        logger.exception("[知识库] 链接目录向量化失败，本次降级为关键词匹配")
+        vecs = []
+    if len(vecs) == len(catalog):
+        result = [{**entry, "vector": vec} for entry, vec in zip(catalog, vecs)]
+        _LINK_VECTORS_CACHE[key] = result
+        logger.info("[知识库] 链接目录向量化完成 | %s 条", len(result))
+        return result
+    # 向量化未成功：返回无向量目录，不写缓存以便下次重试
+    return [dict(entry) for entry in catalog]
+
+
+def _link_coverage(text: str, anchor: str) -> float:
+    """
+    衡量「链接标题(锚文本)的关键词被问题覆盖了多少」，按词长加权(越长越独特、权重越高)。
+    与问题中心的 _keyword_match_score 互补：不受长句里大量废话稀释，解决多字口语长句漏匹配。
+    """
+    terms = [t for t in _search_terms(anchor) if len(t) >= 2]
+    if not terms:
+        return 0.0
+    q = _normalize_search_text(text)
+    if not q:
+        return 0.0
+    matched_w = 0.0
+    total_w = 0.0
+    for term in terms:
+        weight = 1.6 if len(term) >= 4 else 1.3 if len(term) == 3 else 1.0
+        total_w += weight
+        if term in q:
+            matched_w += weight
+    return round(matched_w / total_w, 4) if total_w else 0.0
+
+
+def _extract_doc_links(
+    query: str,
+    hits: list[dict[str, Any]],
+    original: str = "",
+    link_entries: list[dict[str, Any]] | None = None,
+    query_vector: list[float] | None = None,
+    min_score: float = 0.20,
+    sem_min: float = 0.52,
+    max_links: int = 3,
+) -> list[dict[str, str]]:
+    """
+    选出与问题相关的链接，去重排序后取前 max_links 条。每条链接同时计算：
+      - 关键词分(改写后/原始问题 与 锚文本+说明 的重叠/覆盖)
+      - 语义分(问题向量 与 链接向量 的余弦相似度，需 link_entries 带 'vector')
+    关键词分 >= min_score 或 语义分 >= sem_min 即入选；按两者较大值排序。
+    候选来自：(1) 命中 chunk 正文里的 markdown 链接；(2) 全库链接目录(link_entries)。
+    链接全程来自知识库原文，不经大模型生成。
+    """
+    queries = [q for q in (query, original) if q]
+    if not queries:
+        return []
+
+    def _kw(item: dict[str, Any], anchor: str) -> float:
+        kw = max(_keyword_match_score(q, item) for q in queries)
+        cov = max(_link_coverage(q, anchor) for q in queries)
+        return max(kw, cov)
+
+    # (排序分, anchor, url) —— 仅收录达标项
+    candidates: list[tuple[float, str, str]] = []
+
+    # 来源 1：命中 chunk 正文里的 markdown 链接（仅关键词分）
+    for item in hits:
+        content = str(item.get("content") or "")
+        if not content:
+            continue
+        chunk_title = str(item.get("title") or item.get("source_title") or "")
+        for match in _MD_LINK_RE.finditer(content):
+            anchor = (match.group(1) or "").strip()
+            url = _clean_link_url(match.group(2) or "")
+            if not anchor or not url:
+                continue
+            line_start = content.rfind("\n", 0, match.start()) + 1
+            line_end = content.find("\n", match.end())
+            line = content[line_start: line_end if line_end != -1 else len(content)]
+            kw = _kw({"title": anchor, "content": f"{line} {chunk_title}"}, anchor)
+            if kw >= min_score:
+                candidates.append((kw, anchor, url))
+
+    # 来源 2：全库链接目录（关键词分 + 语义分）
+    for entry in (link_entries or []):
+        anchor = entry["anchor"]
+        kw = _kw({"title": anchor, "content": entry.get("desc", "")}, anchor)
+        sem = _cosine(query_vector, entry["vector"]) if query_vector and entry.get("vector") else 0.0
+        if kw >= min_score or sem >= sem_min:
+            candidates.append((max(kw, sem), anchor, entry["url"]))
+
+    candidates.sort(key=lambda row: row[0], reverse=True)
+    links: list[dict[str, str]] = []
+    seen_urls: set[str] = set()
+    for _score, anchor, url in candidates:
+        if url in seen_urls:
+            continue
+        seen_urls.add(url)
+        links.append({"title": anchor, "url": url})
+        if len(links) >= max_links:
+            break
+    return links
+
+
 # ──────────────────── 辅助：图片多模态 ────────────────────
 
 _UPLOADS_DIR = Path(__file__).resolve().parents[2] / "uploads" / "chat_images"
@@ -314,7 +512,9 @@ async def _load_default_provider(db: AsyncSession) -> LlmProvider | None:
 
 
 async def _load_active_providers(db: AsyncSession) -> list[LlmProvider]:
-    """加载所有启用的模型，按 priority 升序（数字越小越先试），is_default 优先。"""
+    """加载所有启用的【对话】模型，按 priority 升序（数字越小越先试），is_default 优先。
+    自动排除 embedding 类模型（名字含 embedding）——它们只用于向量化，不能对话，
+    否则会污染对话的故障切换链（切到它必然失败）。"""
     rows = (
         await db.execute(
             select(LlmProvider)
@@ -322,7 +522,11 @@ async def _load_active_providers(db: AsyncSession) -> list[LlmProvider]:
             .order_by(LlmProvider.priority.asc(), LlmProvider.is_default.desc(), LlmProvider.id.desc())
         )
     ).scalars().all()
-    return list(rows)
+    chat_rows = [r for r in rows if "embedding" not in (r.model or "").lower()]
+    skipped = len(rows) - len(chat_rows)
+    if skipped:
+        logger.info("[AI] 对话模型加载已跳过 %s 个 embedding 模型", skipped)
+    return chat_rows
 
 
 async def _load_history(db: AsyncSession, conversation_id: int, limit: int = 20) -> list[dict]:
@@ -401,6 +605,9 @@ async def _retrieve_knowledge_docs(
         "top_k": top_k,
         "min_score": min_score,
         "docs": [],
+        "links": [],
+        "embedding_tokens": 0,
+        "embedding_input_price": 0.0,
         "message": "未命中知识库",
     }
 
@@ -408,15 +615,19 @@ async def _retrieve_knowledge_docs(
     providers = await _load_active_providers(db)
     query = await _rewrite_query(message, providers[0]) if providers else message
 
+    query_vector: list[float] | None = None
     try:
         vectors = await embed_texts(db, [query], provider_name=provider_name, model_name=model_name, runtime_meta=embedding_meta)
         retrieval_state["provider"] = embedding_meta.get("provider") or retrieval_state["provider"]
         retrieval_state["model"] = embedding_meta.get("model") or retrieval_state["model"]
         retrieval_state["base_url"] = embedding_meta.get("base_url") or ""
+        retrieval_state["embedding_tokens"] = embedding_meta.get("tokens") or 0
+        retrieval_state["embedding_input_price"] = embedding_meta.get("input_price") or 0.0
         if not vectors:
             retrieval_state["status"] = "failed"
             retrieval_state["message"] = "知识库 embedding 返回为空，本次回答未参考知识库"
             return "", [], retrieval_state
+        query_vector = vectors[0]
         matches = query_knowledge(runtime_cfg["index_dir"], vectors[0], top_k=top_k)
     except Exception as exc:
         retrieval_state["status"] = "failed"
@@ -476,6 +687,12 @@ async def _retrieve_knowledge_docs(
     )
     retrieval_state["status"] = "success"
     retrieval_state["docs"] = docs
+    link_entries = await _ensure_link_vectors(db, runtime_cfg["vault_path"], provider_name, model_name)
+    retrieval_state["links"] = _extract_doc_links(
+        query, hits, original=message, link_entries=link_entries, query_vector=query_vector
+    )
+    if retrieval_state["links"]:
+        logger.info("[知识库] 提取相关链接 %s 条", len(retrieval_state["links"]))
     if retrieval_state.get("mode") == "vector":
         retrieval_state["message"] = f"命中 {len(docs)} 条知识"
     logger.info("[知识库] 命中 %s 条知识", len(docs))
